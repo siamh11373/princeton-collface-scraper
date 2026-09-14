@@ -12,4 +12,3 @@ def test_doctor_json_is_safe_without_credentials(capsys, monkeypatch):
     assert value["ok"] is True
     assert value["credentials"] == {"password": False, "username": False}
     assert "COLLFACE" not in json.dumps(value)
-
