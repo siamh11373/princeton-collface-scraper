@@ -36,6 +36,15 @@ final unattended-authentication requirement remains blocked unless Princeton pro
 approved noninteractive account or supported exemption. The implementation will detect and
 report that state instead of bypassing MFA.
 
+The first integrated state/export test run exposed formatting drift rather than a behavioral
+failure. Ruff reformatted the scaffold, then reported one import-order issue after retry logic was
+added. Applying its mechanical correction produced a clean lint run and 35 passing tests. A later
+inspection test increased that count; exact final evidence is recorded in the release checks.
+
+The inspection command intentionally does not synthesize selectors. It records only value-free
+DOM structure because inventing a selector from a logged-out page would create false confidence
+about discovery completeness and could accidentally preserve student data.
+
 ## AI collaboration
 
 Codex helped translate the assessment into testable requirements, challenged the assumption that
@@ -43,4 +52,3 @@ a CAS redirect proves authenticated access, and proposed a browser-first contrac
 The author changed the schedule from seven days to completion today and explicitly chose an
 AI-assisted THINKING.md. This file must be updated with real commands, failures, corrections, and
 author overrides as implementation proceeds.
-
