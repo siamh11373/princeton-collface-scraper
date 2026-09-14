@@ -146,12 +146,27 @@ def main(argv: list[str] | None = None) -> int:
             print("Fresh CAS login verified against protected CollFace content.")
             return 0
         if args.inspect:
-            print(
-                "Inspection requires an observed contract capture; use --check-auth "
-                "--allow-interactive first, then follow docs/INSPECTION.md.",
-                file=sys.stderr,
-            )
-            return 3
+            from playwright.sync_api import sync_playwright
+
+            from .auth import authenticate
+            from .config import load_credentials
+            from .inspection import inspect_surface
+
+            credentials = load_credentials()
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch(headless=not args.allow_interactive)
+                context = browser.new_context()
+                try:
+                    page = context.new_page()
+                    authenticate(page, credentials, allow_interactive=args.allow_interactive)
+                    result = inspect_surface(
+                        page, args.output_dir / "inspection" / "site-observation.json"
+                    )
+                finally:
+                    context.close()
+                    browser.close()
+            _print_result(args, result)
+            return 0
         return _run(args)
     except CollFaceError as error:
         if args.json:
