@@ -114,4 +114,3 @@ def test_service_parameter_cannot_point_elsewhere(browser):
 
 def test_invalid_text_pattern_does_not_include_credentials():
     assert re.search("invalid credentials", "Invalid credentials", re.I)
-

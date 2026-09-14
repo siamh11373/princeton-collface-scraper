@@ -17,4 +17,3 @@ def test_credentials_are_not_exposed_by_repr(monkeypatch):
     value = load_credentials()
     assert "synthetic" not in repr(value)
     assert "secret-test-value" not in repr(value)
-

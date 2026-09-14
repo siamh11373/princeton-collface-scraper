@@ -17,4 +17,3 @@ class ListingPage:
 
 
 Fields = dict[str, Any]
-

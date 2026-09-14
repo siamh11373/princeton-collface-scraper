@@ -13,4 +13,3 @@ def browser(playwright_instance):
     value = playwright_instance.chromium.launch(headless=True)
     yield value
     value.close()
-

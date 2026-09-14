@@ -1,6 +1,7 @@
 """Contract-driven browser adapter with no guessed CollFace selectors."""
 
 import re
+import time
 from urllib.parse import urljoin, urlsplit
 
 from playwright.sync_api import Error as PlaywrightError
@@ -13,6 +14,7 @@ from .errors import (
     ExtractionError,
     FetchError,
 )
+from .fetch import backoff, retry_after
 from .fields import from_pairs
 from .models import Fields, ListingPage, ProfileRef
 
@@ -34,28 +36,51 @@ def source_id_from_url(url: str, pattern: str) -> str:
 
 
 class DomAdapter:
-    def __init__(self, page, contract: dict, *, pace=lambda: None):
+    def __init__(self, page, contract: dict, *, pace=lambda: None, sleep=time.sleep):
         self.page = page
         self.contract = contract
         self.pace = pace
+        self.sleep = sleep
 
     def _navigate(self, url: str) -> None:
         url = same_origin_url(url)
-        self.pace()
-        try:
-            response = self.page.goto(url, wait_until="domcontentloaded", timeout=30_000)
-        except PlaywrightError:
-            raise FetchError("Browser navigation failed without exposing page details.") from None
-        if response is None:
-            raise FetchError("Browser navigation returned no response.")
-        if origin(self.page.url) != TARGET or self.page.locator('input[type="password"]').count():
-            raise AuthenticationError("Protected CollFace access expired or was not established.")
-        if response.status == 403:
-            raise AccessBlocked("CollFace denied access; collection stopped.")
-        if response.status == 429:
-            raise AccessBlocked("CollFace rate-limited the browser; collection stopped.")
-        if not 200 <= response.status < 300:
-            raise FetchError(f"CollFace navigation failed with HTTP {response.status}.")
+        for attempt in range(4):
+            self.pace()
+            try:
+                response = self.page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+            except PlaywrightError:
+                if attempt == 3:
+                    raise FetchError("Browser navigation failed after bounded retries.") from None
+                self.sleep(backoff(attempt))
+                continue
+            if response is None:
+                if attempt == 3:
+                    raise FetchError("Browser navigation returned no response after retries.")
+                self.sleep(backoff(attempt))
+                continue
+            if (
+                origin(self.page.url) != TARGET
+                or self.page.locator('input[type="password"]').count()
+            ):
+                raise AuthenticationError(
+                    "Protected CollFace access expired or was not established."
+                )
+            if response.status == 403:
+                raise AccessBlocked("CollFace denied access; collection stopped.")
+            if response.status == 429:
+                delay = retry_after(response.headers.get("retry-after"))
+                if attempt == 3 or delay is None:
+                    raise AccessBlocked("Persistent CollFace rate limiting stopped collection.")
+                self.sleep(delay)
+                continue
+            if response.status >= 500:
+                if attempt == 3:
+                    raise FetchError(f"CollFace remained unavailable with HTTP {response.status}.")
+                self.sleep(backoff(attempt))
+                continue
+            if not 200 <= response.status < 300:
+                raise FetchError(f"CollFace navigation failed with HTTP {response.status}.")
+            return
 
     def list_page(self, cursor: str | None) -> ListingPage:
         listing = self.contract["listing"]
@@ -155,4 +180,3 @@ class DomAdapter:
         if not self.contract.get("field_validation_evidence"):
             return False
         return self.profile(ref) == fields
-

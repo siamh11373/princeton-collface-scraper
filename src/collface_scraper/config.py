@@ -36,4 +36,3 @@ def load_credentials() -> Credentials:
     if not isinstance(username, str) or not username.strip() or not password:
         raise ConfigurationError("Set both CollFace credential environment variables.")
     return Credentials(username=username.strip(), password=password)
-

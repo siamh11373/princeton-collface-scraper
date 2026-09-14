@@ -52,4 +52,3 @@ def test_exhaustive_claim_requires_enumeration_evidence(tmp_path):
     path.write_text(json.dumps(value))
     with pytest.raises(ConfigurationError, match="enumeration evidence"):
         load_contract(path)
-

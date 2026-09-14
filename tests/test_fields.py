@@ -36,4 +36,3 @@ def test_spreadsheet_sensitive_values_import_as_text(value):
 
 def test_unicode_and_ordinary_values_are_unchanged():
     assert sheets_safe("東京, café") == "東京, café"
-

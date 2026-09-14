@@ -58,4 +58,3 @@ def spreadsheet_sensitive(value: str) -> bool:
 def sheets_safe(value: Any) -> str:
     rendered = csv_text(value)
     return "'" + rendered if spreadsheet_sensitive(rendered) else rendered
-

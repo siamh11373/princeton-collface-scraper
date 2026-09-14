@@ -19,9 +19,7 @@ CHALLENGE = re.compile(
     r"two.factor authentication|multi.factor authentication",
     re.I,
 )
-HUMAN_CHECK = re.compile(
-    r"verify you are human|checking your browser|security verification", re.I
-)
+HUMAN_CHECK = re.compile(r"verify you are human|checking your browser|security verification", re.I)
 INVALID = re.compile(
     r"invalid credentials|authentication failed|incorrect password|"
     r"credentials.{0,20}(invalid|incorrect)",
@@ -113,9 +111,7 @@ def authenticate(
                     raise AuthenticationError("The credential form no longer submits by POST.")
                 username.fill(credentials.username)
                 password.fill(credentials.password)
-                page.get_by_role("button", name=re.compile(r"^login$", re.I)).click(
-                    timeout=15_000
-                )
+                page.get_by_role("button", name=re.compile(r"^login$", re.I)).click(timeout=15_000)
                 submitted = True
             elif origin(page.url) not in (TARGET, CAS_ORIGIN) and not any(
                 host.endswith(".duosecurity.com") for host in frame_hosts
@@ -132,4 +128,3 @@ def authenticate(
         raise
     except PlaywrightError:
         raise AuthenticationError("The browser could not complete the verified CAS flow.") from None
-

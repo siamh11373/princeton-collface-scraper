@@ -35,4 +35,3 @@ def load_contract(path: Path) -> dict:
     if not {"root", "sections", "heading", "rows", "label", "value"}.issubset(profile):
         raise ConfigurationError("The profile contract is incomplete.")
     return value
-

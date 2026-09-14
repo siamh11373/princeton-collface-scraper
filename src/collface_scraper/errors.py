@@ -35,4 +35,3 @@ class FetchError(CollFaceError):
 
 class StateMismatch(CollFaceError):
     code = "state_mismatch"
-
