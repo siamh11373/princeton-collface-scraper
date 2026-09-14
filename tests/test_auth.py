@@ -112,5 +112,15 @@ def test_service_parameter_cannot_point_elsewhere(browser):
     context.close()
 
 
+def test_service_parameter_is_required_before_credentials(browser):
+    context = browser.new_context()
+    context.route("**/*", lambda route: route.fulfill(content_type="text/html", body=LOGIN))
+    page = context.new_page()
+    page.goto("https://fed.princeton.edu/cas/login")
+    with pytest.raises(AuthenticationError, match="destination"):
+        authenticate(page, Credentials("synthetic", "test-only"), timeout=0.3)
+    context.close()
+
+
 def test_invalid_text_pattern_does_not_include_credentials():
     assert re.search("invalid credentials", "Invalid credentials", re.I)

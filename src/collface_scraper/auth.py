@@ -29,7 +29,7 @@ INVALID = re.compile(
 
 def _service_is_valid(url: str) -> bool:
     services = parse_qs(urlsplit(url).query).get("service", [])
-    return not services or all(origin(value) == TARGET for value in services)
+    return len(services) == 1 and origin(services[0]) == TARGET
 
 
 def _protected(page, text: str) -> bool:

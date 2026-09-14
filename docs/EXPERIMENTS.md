@@ -14,7 +14,8 @@ names, profile values, authenticated HTML, screenshots, or response bodies.
 ## 2026-09-14 - verification
 
 - Ruff lint and format checks pass.
-- All 38 synthetic tests pass, including CAS/Duo failures, session renewal, discovery, dynamic
+- All 39 synthetic tests pass, including CAS/Duo failures, exact service callbacks, session
+  renewal, discovery, dynamic
   Unicode fields, hidden-value exclusion, `Retry-After`,
   interruption/resume, retries, reconciliation, and CSV round-trip validation.
 - A clean clone installed under Python 3.12.13, passed its command-line doctor check and Ruff

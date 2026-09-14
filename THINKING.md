@@ -89,7 +89,8 @@ added. Applying its mechanical correction produced a clean lint run and 35 passi
 inspection test increased that count. The PDF audit then found two real gaps: expired sessions
 were detected but not renewed, and links inside an otherwise visible value could include hidden
 descendants. I added one safe renewal attempt and visibility filtering, plus `Retry-After` recovery
-coverage. The final local suite reached 38 passing tests.
+coverage. A final authentication review made the CAS `service` callback mandatory rather than
+merely rejecting a foreign callback. The final local suite reached 39 passing tests.
 
 The inspection command intentionally does not synthesize selectors. It records only value-free
 DOM structure because inventing a selector from a logged-out page would create false confidence
