@@ -175,6 +175,12 @@ def main(argv: list[str] | None = None) -> int:
                     result = inspect_surface(
                         page, args.output_dir / "inspection" / "site-observation.json"
                     )
+                    if args.allow_interactive:
+                        print(
+                            "The authenticated browser will remain open for contract review. "
+                            "Press Enter here when the review is finished."
+                        )
+                        input()
                 finally:
                     context.close()
                     browser.close()

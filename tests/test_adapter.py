@@ -2,7 +2,7 @@ import pytest
 
 from collface_scraper.adapter import DomAdapter, same_origin_url
 from collface_scraper.config import TARGET
-from collface_scraper.errors import DiscoveryError
+from collface_scraper.errors import AccessBlocked, DiscoveryError, FetchError
 
 
 def contract():
@@ -141,6 +141,37 @@ def test_rate_limit_honors_retry_after_then_recovers(browser):
     result = DomAdapter(context.new_page(), value, sleep=sleeps.append).list_page(None)
     assert result.profiles[0].source_id == "101"
     assert sleeps == [2.0]
+    context.close()
+
+
+@pytest.mark.parametrize("status", [403, 429])
+def test_persistent_access_controls_stop_collection(browser, status):
+    context = browser.new_context()
+    context.route(
+        "**/*",
+        lambda route: route.fulfill(status=status, headers={"Retry-After": "0"}, body="blocked"),
+    )
+    value = contract()
+    value["listing"].pop("total")
+    with pytest.raises(AccessBlocked):
+        DomAdapter(context.new_page(), value, sleep=lambda _: None).list_page(None)
+    context.close()
+
+
+def test_network_failures_retry_then_fail_cleanly(browser):
+    context = browser.new_context()
+    calls = []
+
+    def fail(route):
+        calls.append(route.request.url)
+        route.abort("connectionfailed")
+
+    context.route("**/*", fail)
+    value = contract()
+    value["listing"].pop("total")
+    with pytest.raises(FetchError, match="bounded retries"):
+        DomAdapter(context.new_page(), value, sleep=lambda _: None).list_page(None)
+    assert len(calls) == 4
     context.close()
 
 

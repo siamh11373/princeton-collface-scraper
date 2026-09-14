@@ -54,7 +54,8 @@ python -m collface_scraper --export-only
 ```
 
 `--inspect` writes a value-free structural observation under `output/inspection/`. Review it in
-the authenticated browser, create `site-contract.json` from selectors actually observed, and
+the authenticated browser, which remains open until Enter is pressed; create `site-contract.json`
+from selectors actually observed, and
 record evidence for the stable identifier and exhaustive listing mechanism. The collector refuses
 to run without this reviewed contract. See [docs/INSPECTION.md](docs/INSPECTION.md).
 

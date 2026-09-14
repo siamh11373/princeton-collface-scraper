@@ -4,8 +4,9 @@
 2. Run `python -m collface_scraper --check-auth` in a clean context first. Record
    `auth_unattended_blocked` if Duo appears.
 3. For bounded development only, run `python -m collface_scraper --inspect --allow-interactive`
-   and approve Duo yourself. The saved observation contains structure and counts, not values.
-4. In the same browser, identify the listing URL, repeated student container, profile link, stable
+   and approve Duo yourself. The saved observation contains structure and counts, not values. The
+   command keeps the authenticated browser open until you press Enter in the terminal.
+4. Before pressing Enter, identify the listing URL, repeated student container, profile link, stable
    source ID, next-page control, authoritative total (if any), profile root, sections, headings,
    label/value rows, and visible photo element.
 5. Encode those selectors in `site-contract.json`. Set `exhaustive` true only with concrete
