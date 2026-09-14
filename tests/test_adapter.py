@@ -88,6 +88,35 @@ def test_cross_origin_urls_are_rejected():
         same_origin_url("https://unexpected.test/student/1")
 
 
+def test_expired_session_is_renewed_once(browser):
+    context = browser.new_context()
+    calls = {"requests": 0, "renewals": 0}
+
+    def route_request(route):
+        calls["requests"] += 1
+        if calls["requests"] == 1:
+            route.fulfill(content_type="text/html", body='<input type="password">')
+        else:
+            route.fulfill(
+                content_type="text/html",
+                body=(
+                    "<div class=card data-source-id=101>"
+                    "<a class=profile href=/students/101>A</a></div>"
+                ),
+            )
+
+    def renew():
+        calls["renewals"] += 1
+
+    context.route("**/*", route_request)
+    value = contract()
+    value["listing"].pop("total")
+    result = DomAdapter(context.new_page(), value, renew=renew).list_page(None)
+    assert result.profiles[0].source_id == "101"
+    assert calls["renewals"] == 1
+    context.close()
+
+
 def test_profile_extracts_dynamic_repeated_fields_links_and_photo(browser):
     context = browser.new_context()
     context.route(

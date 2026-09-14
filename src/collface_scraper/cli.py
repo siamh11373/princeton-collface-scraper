@@ -89,7 +89,20 @@ def _run(args) -> int:
                 try:
                     page = context.new_page()
                     authenticate(page, credentials, allow_interactive=args.allow_interactive)
-                    collect(DomAdapter(page, contract, pace=Pacer(1).wait), store, limit=args.limit)
+                    collect(
+                        DomAdapter(
+                            page,
+                            contract,
+                            pace=Pacer(1).wait,
+                            renew=lambda: authenticate(
+                                page,
+                                credentials,
+                                allow_interactive=args.allow_interactive,
+                            ),
+                        ),
+                        store,
+                        limit=args.limit,
+                    )
                 finally:
                     context.close()
                     browser.close()

@@ -36,14 +36,24 @@ def source_id_from_url(url: str, pattern: str) -> str:
 
 
 class DomAdapter:
-    def __init__(self, page, contract: dict, *, pace=lambda: None, sleep=time.sleep):
+    def __init__(
+        self,
+        page,
+        contract: dict,
+        *,
+        pace=lambda: None,
+        sleep=time.sleep,
+        renew=None,
+    ):
         self.page = page
         self.contract = contract
         self.pace = pace
         self.sleep = sleep
+        self.renew = renew
 
     def _navigate(self, url: str) -> None:
         url = same_origin_url(url)
+        renewed = False
         for attempt in range(4):
             self.pace()
             try:
@@ -62,6 +72,10 @@ class DomAdapter:
                 origin(self.page.url) != TARGET
                 or self.page.locator('input[type="password"]').count()
             ):
+                if self.renew is not None and not renewed:
+                    renewed = True
+                    self.renew()
+                    continue
                 raise AuthenticationError(
                     "Protected CollFace access expired or was not established."
                 )
