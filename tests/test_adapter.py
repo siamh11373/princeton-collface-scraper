@@ -28,7 +28,7 @@ def test_listing_uses_stable_ids_and_same_origin_pagination(browser):
     context.route(
         "**/*",
         lambda route: route.fulfill(
-            content_type="text/html",
+            content_type="text/html; charset=utf-8",
             body="""
             <span class=total>2 students</span>
             <div class=card data-source-id=101><a class=profile href=/students/101>A</a></div>
@@ -87,3 +87,45 @@ def test_cross_origin_urls_are_rejected():
     with pytest.raises(DiscoveryError, match="outside"):
         same_origin_url("https://unexpected.test/student/1")
 
+
+def test_profile_extracts_dynamic_repeated_fields_links_and_photo(browser):
+    context = browser.new_context()
+    context.route(
+        "**/*",
+        lambda route: route.fulfill(
+            content_type="text/html; charset=utf-8",
+            body="""
+            <main id=profile>
+              <img class=photo src=/media/101.jpg>
+              <section><h2>Contact</h2>
+                <dl><dt>Unexpected label</dt><dd>東京, "quoted"</dd></dl>
+                <dl><dt>Affiliation</dt><dd>First</dd></dl>
+                <dl><dt>Affiliation</dt><dd>Second</dd></dl>
+                <dl><dt>Links</dt><dd><a href=/about>About</a></dd></dl>
+                <dl><dt>Missing</dt><dd></dd></dl>
+              </section>
+            </main>
+            """,
+        ),
+    )
+    value = contract()
+    value["profile"] = {
+        "root": "#profile",
+        "sections": "section",
+        "heading": "h2",
+        "rows": "dl",
+        "label": "dt",
+        "value": "dd",
+        "photo": {"selector": "img.photo", "label": "Photo URL"},
+    }
+    value["field_validation_evidence"] = "Synthetic fixture comparison"
+    adapter = DomAdapter(context.new_page(), value)
+    ref = type("Ref", (), {"source_id": "101", "url": TARGET + "/students/101"})()
+    fields = adapter.profile(ref)
+    assert fields["Contact/Unexpected label"] == '東京, "quoted"'
+    assert fields["Contact/Affiliation"] == ["First", "Second"]
+    assert fields["Contact/Links"]["links"] == [TARGET + "/about"]
+    assert fields["Contact/Missing"] == ""
+    assert fields["Profile/Photo URL"] == TARGET + "/media/101.jpg"
+    assert adapter.audit(ref, fields)
+    context.close()

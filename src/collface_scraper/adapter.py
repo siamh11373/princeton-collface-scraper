@@ -6,8 +6,15 @@ from urllib.parse import urljoin, urlsplit
 from playwright.sync_api import Error as PlaywrightError
 
 from .config import TARGET, origin
-from .errors import AccessBlocked, AuthenticationError, DiscoveryError, FetchError
-from .models import ListingPage, ProfileRef
+from .errors import (
+    AccessBlocked,
+    AuthenticationError,
+    DiscoveryError,
+    ExtractionError,
+    FetchError,
+)
+from .fields import from_pairs
+from .models import Fields, ListingPage, ProfileRef
 
 
 def same_origin_url(value: str, base: str = TARGET) -> str:
@@ -93,4 +100,59 @@ class DomAdapter:
                         raise DiscoveryError("The observed next-page control has no URL.")
                     next_cursor = same_origin_url(href, url)
         return ListingPage(tuple(refs), next_cursor, total, self.contract["exhaustive"])
+
+    def profile(self, ref: ProfileRef) -> Fields:
+        self._navigate(ref.url)
+        profile = self.contract["profile"]
+        root = self.page.locator(profile["root"])
+        try:
+            root.wait_for(state="visible", timeout=15_000)
+        except PlaywrightError:
+            raise ExtractionError("The observed profile root was not found.") from None
+
+        pairs = []
+        for section in root.locator(profile["sections"]).all():
+            if not section.is_visible():
+                continue
+            heading = section.locator(profile["heading"]).first
+            if not heading.count():
+                raise ExtractionError("A visible profile section has no observed heading.")
+            section_name = heading.inner_text()
+            for row in section.locator(profile["rows"]).all():
+                if not row.is_visible():
+                    continue
+                label = row.locator(profile["label"]).first
+                value = row.locator(profile["value"]).first
+                if not label.count() or not value.count():
+                    raise ExtractionError("A visible profile row changed structure.")
+                extracted = value.evaluate(
+                    """element => {
+                        const text = element.innerText;
+                        const links = [...element.querySelectorAll('a[href]')].map(a => a.href);
+                        const images = [...element.querySelectorAll('img[src]')].map(i => i.src);
+                        return links.length || images.length ? {text, links, images} : text;
+                    }"""
+                )
+                pairs.append((section_name, label.inner_text(), extracted))
+
+        photo_rule = profile.get("photo")
+        if photo_rule:
+            photo = root.locator(photo_rule["selector"])
+            if photo.count() and photo.first.is_visible():
+                url = photo.first.get_attribute(photo_rule.get("attribute", "src"))
+                if not url:
+                    raise ExtractionError("The visible profile photo has no source URL.")
+                pairs.append(
+                    (
+                        photo_rule.get("section", "Profile"),
+                        photo_rule.get("label", "Photo URL"),
+                        urljoin(self.page.url, url),
+                    )
+                )
+        return from_pairs(pairs)
+
+    def audit(self, ref: ProfileRef, fields: Fields) -> bool:
+        if not self.contract.get("field_validation_evidence"):
+            return False
+        return self.profile(ref) == fields
 
