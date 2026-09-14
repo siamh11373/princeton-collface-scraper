@@ -117,6 +117,33 @@ def test_expired_session_is_renewed_once(browser):
     context.close()
 
 
+def test_rate_limit_honors_retry_after_then_recovers(browser):
+    context = browser.new_context()
+    calls = {"requests": 0}
+    sleeps = []
+
+    def route_request(route):
+        calls["requests"] += 1
+        if calls["requests"] == 1:
+            route.fulfill(status=429, headers={"Retry-After": "2"}, body="slow down")
+        else:
+            route.fulfill(
+                content_type="text/html",
+                body=(
+                    "<div class=card data-source-id=101>"
+                    "<a class=profile href=/students/101>A</a></div>"
+                ),
+            )
+
+    context.route("**/*", route_request)
+    value = contract()
+    value["listing"].pop("total")
+    result = DomAdapter(context.new_page(), value, sleep=sleeps.append).list_page(None)
+    assert result.profiles[0].source_id == "101"
+    assert sleeps == [2.0]
+    context.close()
+
+
 def test_profile_extracts_dynamic_repeated_fields_links_and_photo(browser):
     context = browser.new_context()
     context.route(
@@ -130,7 +157,8 @@ def test_profile_extracts_dynamic_repeated_fields_links_and_photo(browser):
                 <dl><dt>Unexpected label</dt><dd>東京, "quoted"</dd></dl>
                 <dl><dt>Affiliation</dt><dd>First</dd></dl>
                 <dl><dt>Affiliation</dt><dd>Second</dd></dl>
-                <dl><dt>Links</dt><dd><a href=/about>About</a></dd></dl>
+                <dl><dt>Links</dt><dd><a href=/about>About</a>
+                  <a hidden href=/hidden-backend-value>Hidden</a></dd></dl>
                 <dl><dt>Missing</dt><dd></dd></dl>
               </section>
             </main>

@@ -83,9 +83,9 @@ class DomAdapter:
                 raise AccessBlocked("CollFace denied access; collection stopped.")
             if response.status == 429:
                 delay = retry_after(response.headers.get("retry-after"))
-                if attempt == 3 or delay is None:
+                if attempt == 3:
                     raise AccessBlocked("Persistent CollFace rate limiting stopped collection.")
-                self.sleep(delay)
+                self.sleep(delay if delay is not None else backoff(attempt))
                 continue
             if response.status >= 500:
                 if attempt == 3:
@@ -167,8 +167,13 @@ class DomAdapter:
                 extracted = value.evaluate(
                     """element => {
                         const text = element.innerText;
-                        const links = [...element.querySelectorAll('a[href]')].map(a => a.href);
-                        const images = [...element.querySelectorAll('img[src]')].map(i => i.src);
+                        const visible = item => !!(
+                            item.offsetWidth || item.offsetHeight || item.getClientRects().length
+                        );
+                        const links = [...element.querySelectorAll('a[href]')]
+                            .filter(visible).map(a => a.href);
+                        const images = [...element.querySelectorAll('img[src]')]
+                            .filter(visible).map(i => i.src);
                         return links.length || images.length ? {text, links, images} : text;
                     }"""
                 )
