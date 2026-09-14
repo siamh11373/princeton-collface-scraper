@@ -26,10 +26,12 @@ automate or bypass MFA.
 ## Install
 
 ```bash
-python3.12 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+uv sync --locked --all-extras
 .venv/bin/playwright install chromium
 ```
+
+The `requirements.txt` path remains available for reviewers who use `venv` and `pip`; `uv.lock`
+is the exact reproducible environment used for verification.
 
 Set credentials in the process environment. Do not put real values in `.env` files or shell
 history:
