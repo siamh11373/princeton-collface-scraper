@@ -1,0 +1,34 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Authentication and browser state
+credentials*.json
+auth-state/
+browser-state/
+cookies*.json
+*.har
+
+# Authenticated observations and student data
+output/
+captures/
+inspection/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.csv
+*.log
+*.html
+*.png
+*.jpg
+*.jpeg
+
