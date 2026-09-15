@@ -1,30 +1,17 @@
-# Princeton CollFace scraper
+# Princeton CollFace Scraper
 
-An independently implemented Python application for authorized, resumable collection of the
-Princeton Residential College Student Facebook. It discovers students through an observed site
-contract, extracts every visible labelled field dynamically, and produces a UTF-8 CSV validated
-for Google Sheets.
+An authorized, resumable scraper for Princeton's Residential College Student Facebook. It collects
+the fields visible in CollFace and creates UTF-8 CSV files for Google Sheets.
 
-This public-code project never stores credentials, cookies, browser state, authenticated HTML,
-student photos, student records, SQLite state, or CSV exports in Git. The assessment PDF is also
-excluded and is not reproduced here.
+The repository does not include credentials, cookies, student data, browser captures, databases,
+CSV exports, or the assessment PDF.
 
-## Safety and current status
-
-The implementation, synthetic test suite, and reviewed `site-contract.json` are complete. An
-authorized installed-Chrome run can accept manual Princeton login and Duo approval, then continue
-through discovery, collection, reconciliation, and CSV export without a manual download. A live
-three-profile clean-session run verified this path. A separate full run enumerated 5,768 records
-with zero extraction failures. All outputs remain ignored by Git.
-If Duo appears during a headless run, the command exits with `auth_unattended_blocked`; it does not
-automate or bypass MFA.
-
-## Prerequisites
+## Requirements
 
 - Python 3.12
-- Google Chrome installed (required for attended Duo authentication)
-- An account explicitly authorized to access and collect CollFace data
-- An approved noninteractive authentication path for a truly unattended final run
+- [uv](https://docs.astral.sh/uv/)
+- Google Chrome
+- An account authorized to access CollFace
 
 ## Install
 
@@ -33,108 +20,96 @@ uv sync --locked --all-extras
 uv run playwright install chromium
 ```
 
-The second command installs the headless browser used by the non-interactive path and the test
-suite. Attended Duo authentication uses the reviewer's installed Google Chrome. The
-`requirements.txt` path remains available for reviewers who use `venv` and `pip`; `uv.lock` is the
-exact reproducible environment used for verification.
-
-Credentials are optional for attended mode. A reviewer can enter them directly in the clean Chrome
-window. To have the script fill the verified CAS form instead, set both variables in the process
-environment. Do not put real values in `.env` files or shell history:
-
-```bash
-export COLLFACE_USERNAME='your-netid'
-export COLLFACE_PASSWORD='read-from-your-password-manager'
-```
-
-## Commands
-
-```bash
-uv run python -m collface_scraper --doctor --json
-uv run python -m collface_scraper --check-auth
-uv run python -m collface_scraper --check-auth --allow-interactive
-uv run python -m collface_scraper --inspect --allow-interactive
-uv run python -m collface_scraper --limit 3
-uv run python -m collface_scraper
-uv run python -m collface_scraper --export-only
-uv run python -m collface_scraper --browser-export /path/to/collface-export.json
-```
-
-`--inspect` writes a value-free structural observation under `output/inspection/`. The reviewed
-contract records the observed Vue search response and visible card fields. `--allow-interactive`
-launches installed Google Chrome in a temporary isolated profile. If credential variables are set,
-the script fills the verified CAS form; otherwise the reviewer enters credentials directly in
-Chrome. The reviewer approves Duo, and the same command completes the remaining pipeline. The
-temporary Chrome profile is removed when the command exits.
-
-For a Duo-enabled account, the reproducible attended command is:
+## Run with Princeton Duo
 
 ```bash
 uv run python -m collface_scraper --allow-interactive
 ```
 
-That one command opens a separate clean Chrome window. Enter Princeton credentials there if they
-were not supplied through the environment, approve Duo, and leave the window open. After CollFace
-loads, the program discovers the directory, collects the visible fields, reconciles the result,
-and writes the CSVs without another manual step.
+The script opens a clean Google Chrome window. Enter your Princeton credentials, approve Duo, and
+leave the window open. The script continues automatically after CollFace loads. It discovers the
+directory, collects the visible fields, checks completeness, and writes the CSV files.
 
-`--browser-export` remains a recovery tool for processing a temporary same-origin response, but it
-is no longer required for the normal attended workflow. See
-[docs/INSPECTION.md](docs/INSPECTION.md).
+The temporary Chrome profile and its cookies are deleted when the command ends. Duo is never
+automated or bypassed.
 
-The default run uses one browser, one session, one worker, and a global limit of one navigation per
-second. It performs discovery, transactional profile collection, a second discovery pass,
-reconciliation, CSV validation, and reporting. `--limit 3` uses isolated sample state.
+### Optional environment credentials
 
-## Outputs and exit codes
+If both variables are set, the script fills the CAS form before waiting for Duo:
 
-Full-run artifacts are written to:
-
-```text
-output/full/run.sqlite
-output/full/profiles.csv
-output/full/profiles.raw.csv
-output/full/report.json
+```bash
+export COLLFACE_USERNAME='your-netid'
+export COLLFACE_PASSWORD='read-from-your-password-manager'
+uv run python -m collface_scraper --allow-interactive
 ```
 
-Attended runs use `output/attended-full/`; attended samples use `output/attended-sample/`.
+Do not save credentials in the repository or an `.env` file.
 
-Exit code `0` means the command produced complete data; this includes an explicitly attended full
-run whose report transparently lists `attended_authentication`. Exit code `2` means a limited or
-otherwise incomplete result, `3` means configuration/auth/access blocking, and `130` means
-interruption. Re-running resumes the same account, scope, limit, and contract; mismatched state
-fails closed.
+## Other commands
 
-`profiles.csv` prefixes spreadsheet-formula and numeric-identifier values with an apostrophe. If
-a visible source value already begins with an apostrophe (as CollFace class years do), the safe
-CSV doubles that marker so Google Sheets displays the original single apostrophe.
-`profiles.raw.csv` preserves exact rendered values for validation. Repeated visible fields are
-ordered JSON arrays. Missing values are empty cells; failed profiles are not silently represented
-as missing.
+```bash
+# Check local setup
+uv run python -m collface_scraper --doctor --json
 
-## Architecture
+# Test authentication only
+uv run python -m collface_scraper --check-auth --allow-interactive
 
-- `auth.py`: exact-origin CAS validation, protected-content proof, Duo detection
-- `contract.py` and `inspection.py`: reviewed observed structure, sanitized inspection
-- `adapter.py`: same-origin pagination and dynamic visible-field extraction
-- `search_adapter.py`: observed exhaustive Vue response, opaque stable IDs, browser-card audits
-- `browser_export.py`: normal-Chrome fallback that filters the temporary response to visible fields
-- `browser_session.py`: isolated installed-Chrome lifecycle for attended login and Duo approval
-- `state.py` and `runner.py`: SQLite queue, atomic page commits, resume, reconciliation
-- `fetch.py`: global pacing, bounded backoff, `Retry-After`
-- `export.py`: deterministic headers, atomic UTF-8 CSVs, hashes, completion report
+# Collect a three-profile sample
+uv run python -m collface_scraper --limit 3 --allow-interactive
+
+# Inspect the authenticated page structure
+uv run python -m collface_scraper --inspect --allow-interactive
+
+# Rebuild CSVs from saved state
+uv run python -m collface_scraper --export-only
+```
+
+Runs use one browser session, one worker, and a maximum rate of one request per second. Interrupted
+runs resume from SQLite without collecting completed profiles again.
+
+## Outputs
+
+An attended full run writes:
+
+```text
+output/attended-full/run.sqlite
+output/attended-full/profiles.csv
+output/attended-full/profiles.raw.csv
+output/attended-full/report.json
+```
+
+- `profiles.csv` is safe to import into Google Sheets.
+- `profiles.raw.csv` preserves the exact displayed values for validation.
+- `report.json` records counts, checks, hashes, and any reason the run is incomplete.
+- `run.sqlite` stores progress for resumable runs.
+
+Sample runs use `output/attended-sample/`. All output directories are ignored by Git.
+
+## Exit codes
+
+- `0`: complete data
+- `2`: limited or incomplete result
+- `3`: configuration, authentication, or access blocked
+- `130`: interrupted
+
+Attended runs record `attended_authentication` in the report. They are reproducible, but they are
+not fully unattended because Duo requires human approval. A fully unattended run requires an
+approved noninteractive Princeton account or CAS exemption.
 
 ## Troubleshooting
 
-- `auth_unattended_blocked`: Duo or another human challenge appeared in a headless run. Re-run with
-  `--allow-interactive`, or obtain Princeton's approved noninteractive path if unattended execution
-  is required.
-- `state_mismatch`: move the old ignored output directory aside or resume with the exact original
-  account, contract, scope, and limit.
-- `access_blocked`: stop. Persistent 429 and HTTP 403 are not retried indefinitely.
-- `configuration_error`: verify both environment variables and the reviewed contract path.
-- `--allow-interactive` is reproducible attended execution, not proof of unattended CAS
-  compliance. The report records `attended_authentication` for that reason.
+- `auth_unattended_blocked`: rerun with `--allow-interactive` to approve Duo.
+- `state_mismatch`: resume with the same account, contract, scope, and limit, or use a new output
+  directory.
+- `access_blocked`: the site returned a persistent 403 or 429. Stop and confirm access.
+- `configuration_error`: check the credentials, Chrome installation, and `site-contract.json`.
 
-Run checks with `.venv/bin/ruff check .`, `.venv/bin/ruff format --check .`, and
-`.venv/bin/pytest -q`.
+## Tests
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run pytest -q
+```
+
+See [THINKING.md](THINKING.md) for the design decisions, tradeoffs, and project limitations.
