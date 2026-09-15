@@ -80,7 +80,9 @@ Exit code `0` means the report passed all completion checks, `2` means a safe pa
 means configuration/auth/access blocking, and `130` means interruption. Re-running resumes the
 same account, scope, limit, and contract; mismatched state fails closed.
 
-`profiles.csv` prefixes spreadsheet-formula and numeric-identifier values with an apostrophe.
+`profiles.csv` prefixes spreadsheet-formula and numeric-identifier values with an apostrophe. If
+a visible source value already begins with an apostrophe (as CollFace class years do), the safe
+CSV doubles that marker so Google Sheets displays the original single apostrophe.
 `profiles.raw.csv` preserves exact rendered values for validation. Repeated visible fields are
 ordered JSON arrays. Missing values are empty cells; failed profiles are not silently represented
 as missing.

@@ -57,4 +57,19 @@ def spreadsheet_sensitive(value: str) -> bool:
 
 def sheets_safe(value: Any) -> str:
     rendered = csv_text(value)
-    return "'" + rendered if spreadsheet_sensitive(rendered) else rendered
+    # Sheets consumes one leading apostrophe as a CSV text-control marker. Double it when the
+    # apostrophe belongs to the source value so the visible value survives import.
+    return (
+        "'" + rendered if rendered.startswith("'") or spreadsheet_sensitive(rendered) else rendered
+    )
+
+
+def visible_contract_value(field: dict, value: Any) -> Any:
+    """Apply an observed, declarative display prefix without guessing field semantics."""
+
+    prefix = field.get("display_prefix")
+    if prefix is None or value in (None, ""):
+        return value
+    if not isinstance(prefix, str):
+        raise ExtractionError("A contract display prefix must be a string.")
+    return prefix + str(value)

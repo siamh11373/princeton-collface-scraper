@@ -20,6 +20,12 @@ def contract():
         "visible_fields": [
             {"section": "Profile", "label": "Name", "key": "name"},
             {"section": "Profile", "label": "Email", "key": "email"},
+            {
+                "section": "Academic",
+                "label": "Class Year",
+                "key": "class_yr",
+                "display_prefix": "'",
+            },
         ],
     }
 
@@ -36,6 +42,7 @@ def test_browser_export_filters_to_visible_contract_fields(tmp_path):
                         "id": 123,
                         "name": "Synthetic Student",
                         "email": "test@example.test",
+                        "class_yr": "29",
                         "hidden": "x",
                     }
                 ],
@@ -49,6 +56,7 @@ def test_browser_export_filters_to_visible_contract_fields(tmp_path):
     assert fields == {
         "Profile/Name": "Synthetic Student",
         "Profile/Email": "test@example.test",
+        "Academic/Class Year": "'29",
     }
 
 

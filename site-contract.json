@@ -15,7 +15,7 @@
   },
   "visible_fields": [
     {"section": "Profile", "label": "Name", "key": "name"},
-    {"section": "Academic", "label": "Class Year", "key": "class_yr"},
+    {"section": "Academic", "label": "Class Year", "key": "class_yr", "display_prefix": "'"},
     {"section": "Contact", "label": "Email", "key": "email"},
     {"section": "Academic", "label": "Program", "key": "program"},
     {"section": "Profile", "label": "Photo URL", "key": "img", "url": true}
@@ -27,5 +27,5 @@
     "card": "li.student",
     "photo": "img"
   },
-  "field_validation_evidence": "The Vue card component accepted props img, program, email, class_yr, name, and id. Visible DOM comparison excluded internal id and response-only year, acad_plan_descr, and college."
+  "field_validation_evidence": "The Vue card component accepted props img, program, email, class_yr, name, and id. Live cards render class_yr with a leading apostrophe, captured declaratively as display_prefix. Visible DOM comparison excluded internal id and response-only year, acad_plan_descr, and college."
 }

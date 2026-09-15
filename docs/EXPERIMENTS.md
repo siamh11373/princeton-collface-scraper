@@ -3,6 +3,16 @@
 This log contains sanitized facts only. Do not include credentials, cookies, tokens, student
 names, profile values, authenticated HTML, screenshots, or response bodies.
 
+## 2026-09-14 - Google Sheets fidelity audit
+
+- Imported the ignored full CSV into a native Sheet in the author's Princeton account.
+- Verified 5,768 data rows, seven columns, frozen header, filter, and stable cell count.
+- Normal Chrome showed that CollFace renders class years with a leading apostrophe even though the
+  response value contains only two digits.
+- Moved that observed transformation into `site-contract.json`; the raw CSV now matches the card,
+  and the Sheets-safe CSV doubles the leading marker so one apostrophe remains visible on import.
+- Corrected the live Sheet and verified all 5,768 nonempty class-year cells preserve the prefix.
+
 ## 2026-09-14 - environment
 
 - The project directory did not exist before scaffolding.
@@ -14,7 +24,7 @@ names, profile values, authenticated HTML, screenshots, or response bodies.
 ## 2026-09-14 - verification
 
 - Ruff lint and format checks pass.
-- All 53 synthetic tests pass, including CAS/Duo failures, exact service callbacks, session
+- All 55 synthetic tests pass, including CAS/Duo failures, exact service callbacks, session
   renewal, discovery, dynamic
   Unicode fields, hidden-value exclusion, `Retry-After`,
   interruption/resume, retries, reconciliation, and CSV round-trip validation.

@@ -103,7 +103,7 @@ def export_run(store: RunStore, directory: Path) -> dict:
         "audited_profiles": store.get("audit_count", 0),
         "benchmark": store.get("benchmark"),
         "snapshot_semantics": "collection_window_not_atomic_source_snapshot",
-        "google_sheet_verified": False,
+        "google_sheet_verified": bool(store.get("google_sheet_verified", False)),
     }
     fd, temporary = tempfile.mkstemp(prefix=".report-", suffix=".tmp", dir=directory)
     try:

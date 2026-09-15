@@ -158,6 +158,20 @@ AI suggestions needed correction in three places:
 
 AI did not receive Princeton credentials or approve Duo. It observed response structure only to
 decide which values corresponded to rendered cards; no student values were added to code or docs.
-The final Google Sheet must be recorded here only after it actually occurs. The author should edit this narrative into their own
-voice before submission, especially where personal reasoning or intent cannot be inferred from
-the engineering log.
+
+The final CSV was imported into a native Google Sheet owned by the author's Princeton Google
+account. A programmatic read verified 5,768 data rows and seven columns, and the Sheet was given a
+frozen styled header, filter, and readable widths. It remains private until the author explicitly
+approves the required Princeton-domain Viewer permission.
+
+That visual Sheet review caught a fidelity ambiguity. The imported class-year cells displayed
+`27`, while live CollFace cards displayed a leading apostrophe such as `'28`. Inspecting the local
+SQLite values showed that the API supplies only the two digits and the Vue card adds the
+apostrophe. I first attempted to fix only CSV escaping, then recognized that this would leave the
+raw export wrong. The final change records the observed prefix declaratively in the site contract,
+applies it during both live and Chrome-export extraction, preserves it in the raw CSV, and doubles
+it only in the Sheets-safe CSV. The live Sheet was corrected in place and all 5,768 class-year
+cells were read back with the visible prefix preserved. The suite now contains 55 passing tests.
+
+The author should edit this narrative into their own voice before submission, especially where
+personal reasoning or intent cannot be inferred from the engineering log.

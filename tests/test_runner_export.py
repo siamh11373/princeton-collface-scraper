@@ -74,6 +74,14 @@ def test_full_run_reconciles_and_exports_roundtrip(tmp_path):
     store.close()
 
 
+def test_export_reports_recorded_google_sheet_verification(tmp_path):
+    store = new_store(tmp_path / "run.sqlite")
+    collect(SyntheticAdapter(), store, progress=lambda _: None)
+    store.note("google_sheet_verified", True)
+    assert export_run(store, tmp_path / "out")["google_sheet_verified"] is True
+    store.close()
+
+
 def test_interrupted_run_resumes_without_refetching_complete_record(tmp_path):
     path = tmp_path / "run.sqlite"
     store = new_store(path)

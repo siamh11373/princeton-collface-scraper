@@ -16,8 +16,10 @@ today if the authorized account and noninteractive CAS path are available.
 6. **Complete:** clean-clone, security, documentation, and repository checks.
 7. **Complete:** authenticated normal-Chrome inspection, a complete 5,768-record local export,
    and an exact five-field comparison of three rendered cards against the raw CSV.
-8. **External checkpoint:** approved unattended run, Sheet import,
-   restricted sharing, final scan, and public repository release.
+8. **Complete:** native Google Sheet import, 5,768-by-7 value-count verification, formatting,
+   and exact class-year display correction. The Sheet remains private pending explicit approval.
+9. **External checkpoint:** approved unattended run, restricted Sheet sharing, final scan, and
+   public repository release.
 
 ## Completion gate
 

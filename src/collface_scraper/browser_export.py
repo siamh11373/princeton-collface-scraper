@@ -6,7 +6,7 @@ from urllib.parse import urljoin
 
 from .adapter import same_origin_url
 from .errors import DiscoveryError, ExtractionError
-from .fields import from_pairs
+from .fields import from_pairs, visible_contract_value
 from .models import Fields, ListingPage, ProfileRef
 from .search_adapter import opaque_source_id
 
@@ -63,6 +63,8 @@ class BrowserExportAdapter:
             value = record[field["key"]]
             if field.get("url") and value:
                 value = urljoin(self.contract["target"] + "/", str(value))
+            else:
+                value = visible_contract_value(field, value)
             pairs.append((field["section"], field["label"], value))
         return from_pairs(pairs)
 

@@ -9,7 +9,7 @@ from playwright.sync_api import Error as PlaywrightError
 from .adapter import same_origin_url
 from .errors import AccessBlocked, AuthenticationError, DiscoveryError, ExtractionError, FetchError
 from .fetch import backoff, retry_after
-from .fields import from_pairs
+from .fields import from_pairs, visible_contract_value
 from .models import Fields, ListingPage, ProfileRef
 
 
@@ -138,6 +138,8 @@ class SearchApiAdapter:
             value = record[field["key"]]
             if field.get("url") and value:
                 value = urljoin(self.contract["target"] + "/", str(value))
+            else:
+                value = visible_contract_value(field, value)
             pairs.append((field["section"], field["label"], value))
         return from_pairs(pairs)
 
@@ -162,7 +164,7 @@ class SearchApiAdapter:
             return False
         visible_text = card.first.inner_text()
         for field in self.contract["visible_fields"]:
-            value = record[field["key"]]
+            value = visible_contract_value(field, record[field["key"]])
             if value in (None, "") or field.get("url"):
                 continue
             if str(value) not in visible_text:

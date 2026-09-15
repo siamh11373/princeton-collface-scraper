@@ -12,7 +12,7 @@ RECORDS = [
         "id": 991,
         "name": "Alpha Example",
         "year": 2029,
-        "class_yr": "'29",
+        "class_yr": "29",
         "email": "alpha@princeton.edu",
         "acad_plan_descr": "Hidden description",
         "program": "BSE - Engineering",
@@ -23,7 +23,7 @@ RECORDS = [
         "id": 992,
         "name": "Beta Example",
         "year": 2028,
-        "class_yr": "'28",
+        "class_yr": "28",
         "email": "beta@princeton.edu",
         "acad_plan_descr": "Hidden description",
         "program": "AB - History",
@@ -49,7 +49,12 @@ def contract():
         },
         "visible_fields": [
             {"section": "Profile", "label": "Name", "key": "name"},
-            {"section": "Academic", "label": "Class Year", "key": "class_yr"},
+            {
+                "section": "Academic",
+                "label": "Class Year",
+                "key": "class_yr",
+                "display_prefix": "'",
+            },
             {"section": "Contact", "label": "Email", "key": "email"},
             {"section": "Academic", "label": "Program", "key": "program"},
             {"section": "Profile", "label": "Photo URL", "key": "img", "url": True},
@@ -74,7 +79,7 @@ def install(context, records=RECORDS, *, total=None):
         const body = await result.json();
         document.querySelector('ul').innerHTML = body.data.map(item =>
           `<li class=student><img src="${item.img}"><b>${item.name}</b> ` +
-          `${item.class_yr} ${item.email} ${item.program}</li>`).join('');
+          `'${item.class_yr} ${item.email} ${item.program}</li>`).join('');
       };
     </script>
     """
@@ -115,6 +120,7 @@ def test_whole_directory_discovery_extracts_only_visible_contract_fields(browser
     ref = next(ref for ref in listing.profiles if adapter.records[ref.source_id]["id"] == 991)
     fields = adapter.profile(ref)
     assert fields["Profile/Name"] == "Alpha Example"
+    assert fields["Academic/Class Year"] == "'29"
     assert fields["Profile/Photo URL"] == TARGET + "/photos/alpha.jpg"
     assert "Hidden description" not in json.dumps(fields)
     assert "Hidden college" not in json.dumps(fields)
