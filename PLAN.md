@@ -14,8 +14,8 @@ today if the authorized account and noninteractive CAS path are available.
 4. **Complete:** SQLite resume, one-request-per-second pacing, bounded recovery, reconciliation.
 5. **Complete:** deterministic UTF-8 raw and Sheets-safe CSV validation.
 6. **Complete:** clean-clone, security, documentation, and repository checks.
-7. **Partial:** authenticated normal-Chrome inspection and a complete 5,768-record local export;
-   the three-profile browser comparison remains pending because Chrome was in active use.
+7. **Complete:** authenticated normal-Chrome inspection, a complete 5,768-record local export,
+   and an exact five-field comparison of three rendered cards against the raw CSV.
 8. **External checkpoint:** approved unattended run, Sheet import,
    restricted sharing, final scan, and public repository release.
 

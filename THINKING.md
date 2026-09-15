@@ -109,6 +109,11 @@ dynamic field extraction, and CSV validation. The local run completed all 5,768 
 failures; its report remains partial because attended authentication cannot satisfy the unattended
 assessment requirement. The temporary response and all outputs remain ignored by Git.
 
+For the browser fidelity checkpoint, the author made a separate Chrome tab available. A surname
+query rendered exactly three cards. A value-free local comparison confirmed that every card's
+name, class year, email, program, and same-origin photo URL matched the raw CSV. No student values
+were copied into the repository or documentation.
+
 The first clean-clone installation test also caught a verification mistake: I invoked an absolute
 requirements file while the working directory was still the source repository, so editable `.`
 resolved to the original checkout. I uninstalled it, repeated installation from the clone's own
