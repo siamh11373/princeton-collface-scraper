@@ -1,9 +1,3 @@
-# Engineering thinking and AI collaboration
-
-This document is AI-assisted and will be reviewed and corrected by the author before submission.
-It records only decisions and experiments that actually occurred; future results are not written
-as though they already happened.
-
 ## Problem decomposition
 
 The work is divided into authentication, exhaustive discovery, dynamic extraction, durable state,
