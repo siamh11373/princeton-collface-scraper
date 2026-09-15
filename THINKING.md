@@ -1,152 +1,58 @@
 ## Problem decomposition
 
-
-I split the project into six questions:
-
-1. Can the program authenticate without sending credentials somewhere unexpected?
-2. How does CollFace actually load the directory after login?
-3. What is a stable identity for a student when names are not unique?
-4. Which response values are genuinely visible to the user?
-5. How can a failed run resume without duplicating or skipping work?
-6. How do I know the CSV survived both serialization and Google Sheets import?
+I split the project into five parts: authentication, complete discovery, visible-field extraction,
+resumability, and CSV validation. I only mark a run complete when two discovery passes agree, the
+record count matches, and no profile is pending or failed. Missing fields become empty cells;
+extraction errors remain failures.
 
 ## Approach exploration
 
-I considered direct HTTP requests, full browser automation, and a hybrid approach.
+I considered direct HTTP requests, browser scraping, and a hybrid approach. I chose the hybrid:
+authenticate in a browser, then use the same request CollFace uses.
 
-Direct HTTP would have been the fastest at runtime, but it required me to reproduce Princeton CAS
-state before I understood the application. A browser-only scraper was easier to reason about for
-authentication and visibility, but it would be slow and fragile if I had to visit thousands of
-individual pages. The hybrid option—authenticate in a browser, then use the same application
-request the browser uses—offered the best balance, but only if I could observe a stable endpoint
-and verify that its values matched the page.
+CollFace returns its directory in one same-origin JSON response. It contained 5,768 records, which
+matched the reported total. This was faster and placed less load on the site than opening every
+card separately.
 
-I started browser-first. I validated the CAS host, form action, method, service callback, and the
-protected CollFace page after redirect.
-
-Once I inspected the authenticated site, the architecture changed. CollFace is a Vue interface,
-and its normal all-directory search returned the full dataset in one same-origin JSON response.
-The response reported 5,768 records, and its `data` array also contained 5,768 items. The page then
-paginated that dataset locally. Using this response was both more faithful and less abusive than
-opening 5,768 rendered cards one at a time.
-
-I did not blindly export the entire response. Some backend values were not shown on the card.
-Including them would have violated the requirement to collect what CollFace surfaces to the
-authorized user. I compared the component and rendered cards, then limited the contract to name,
-class year, email, program, and photo URL. Internal ID, a second year value, an academic-plan
-description, and college metadata stayed out of the CSV because they were not visibly rendered.
+I exported only fields shown on the page: name, class year, email, program, and photo URL. Hidden
+backend values were excluded.
 
 ## Technical tradeoffs
 
-### Identity, state, and completeness
+Email was not a reliable ID because one record had no email, and names can repeat. I hash the
+backend ID into an anonymous `profile_id` instead.
 
-My first identity idea was email. Live data disproved it: one record had no visible email. Names
-were even less reliable because they can repeat or change. The response did contain a unique
-backend ID, so I used it only as input to a deterministic hash. The exported `profile_id` is stable
-for resuming and deduplication, while the private source ID never appears in the CSV.
+SQLite stores progress so interrupted runs can resume without repeating completed work. The
+scraper uses one session, one worker, and one request per second. Temporary errors are retried;
+persistent access errors or page changes stop the run.
 
-SQLite is the source of truth; CSV is a derived artifact. Discovery records and queue updates are
-transactional. A completed profile is not fetched again after restart. The database also stores a
-run identity containing the target, scope, sample limit, contract hash, and a one-way account key.
-If any of those change, the scraper refuses to merge the new run into old state.
-
-A full run performs discovery twice. I only consider the population reconciled when both passes
-terminate through the observed exhaustive mechanism, both contain the same unique IDs, the
-authoritative total agrees with the membership count, and no profile remains pending or failed.
-This cannot create a perfectly atomic snapshot of a live directory, but it can detect membership
-changes during the collection window instead of silently ignoring them.
-
-### Reliability and server safety
-
-I began with one session, one worker, and a global pace of one request per second.
-
-Timeouts and transient server errors use bounded exponential backoff with jitter. A valid
-`Retry-After` header wins over the calculated delay. A 403, repeated authentication loop,
-persistent 429, or changed source structure stops the run. Continuing after one of those events
-would risk either abusing the service or creating an output that looked complete when it was not.
-
-### CSV and Google Sheets
-
-The exporter builds a deterministic union of observed section and label names. It writes UTF-8,
-uses the CSV library for quotes and newlines, serializes repeated values as ordered JSON arrays,
-and round-trips every generated row before replacing the previous output atomically.
-
-I kept two versions of the export. `profiles.raw.csv` preserves the exact rendered values for
-validation. `profiles.csv` protects formula-like strings and leading-zero identifiers from
-spreadsheet coercion. This separation means spreadsheet safety does not destroy the evidence I
-need to check fidelity.
-
-The Google Sheets review caught a subtle bug. The API supplied class years as two digits, such as
-`28`, while the live card displayed `'28`. The raw export now preserves
-one apostrophe, while the Sheets-safe export retains the marker needed for import.
-
-The finished Sheet contains 5,768 data rows and seven columns. I verified the row, column, and cell
-counts after import, froze and styled the header, added a filter, and checked all 5,768 class-year
-cells after the correction.
+I create two CSVs. The raw file preserves the displayed values. The Sheets-safe file prevents
+spreadsheet formulas and automatic number conversion. Testing the Sheet found that class years
+needed a leading apostrophe, so I fixed the extraction rule and regenerated the output.
 
 ## Obstacles and solutions
 
-Authentication was the largest obstacle. The available Princeton account uses Duo. The
-programmatic CAS path correctly reached the identity provider, but a fresh context could not
-finish Duo without human approval. I tried two narrow redirect-handling corrections, but the
-remaining problem was not a selector bug; it was the MFA boundary. I chose not to automate around
-or weaken it. The final code detects that state and reports `auth_unattended_blocked`.
+Duo was the main obstacle. It requires human approval, so I did not try to bypass it. Headless
+authentication stops and reports the issue.
 
-For the authorized live inspection, I switched to a normal Chrome tab with my existing approved
-session. I downloaded the same-origin directory response temporarily and passed it through the
-same contract validation, SQLite queue, two-pass reconciliation, extraction, and export code. The
-run completed all 5,768 records with zero pending or failed profiles. Its report remains honest:
-the data run succeeded, but attended authentication does not satisfy the assessment's unattended
-CAS requirement.
+For a reproducible run, the script now opens a clean Google Chrome window. The reviewer logs in,
+approves Duo, and the script automatically continues. The temporary Chrome profile and cookies are
+deleted afterward.
 
-That fallback produced the data, but I would not call it reproducible for another reviewer. I
-changed attended mode to launch the installed Google Chrome application in a clean temporary
-profile and connect to it through Chrome's local debugging interface. The script validates and
-fills the CAS form, pauses for the reviewer to approve Duo, and then resumes automatically in the
-same process. The temporary profile, including its cookies, is deleted when the command exits.
-
-The first end-to-end sample after that change exposed three bugs that the synthetic suite had not
-caught. I was deriving the manual account fingerprint from a `nav` element that CollFace did not
-reliably expose. I replaced it with a hash of normalized text from the already-verified protected
-page; the text itself is never logged or stored. Next, `--limit 3` stopped after three successful
-profiles rather than three attempts, so repeated extraction failures could exceed the limit. I
-changed the invariant to cap attempts. Finally, every text field passed the live audit but every
-photo URL failed. A value-free diagnostic showed that the API returns a filename while the Vue
-card adds `/img/`. I recorded that transformation in the site contract and corrected all 5,768
-photo links in the final Sheet.
-
-After those fixes, a fresh-session command opened installed Chrome, accepted manual credentials
-and Duo approval, discovered the authoritative 5,768-record population, collected three profiles,
-matched all five visible fields for each profile, and wrote both CSV variants with zero failures.
-No response download or cookie transfer was involved.
+The live sample found three bugs: an unreliable account marker, an incorrect `--limit` rule, and
+photo URLs missing `/img/`. I fixed all three and reran the sample successfully. The final checks
+pass Ruff and all 62 tests. No credentials, cookies, student data, database, PDF, or browser
+captures are committed.
 
 ## AI collaboration
 
-I used Codex heavily, but I did not let it work blindly, I understood the problem and then instructed 
-Codex to tackle it using approaches I verfied. It helped me turn vague
-requirements into checks, generate synthetic failure cases, review security boundaries, and poke
-holes in completion claims. I never gave it my Princeton password, cookies, or Duo approval, and I
-did not treat generated guesses as evidence about the authenticated site.
+I used Codex to convert requirements into tests, draft code, create failure cases, and review the
+project. I never shared my password, cookies, or Duo approval with it.
 
-Broad prompts were less useful than narrow ones. “Build the scraper” produced plausible structure,
-but prompts such as “prove fresh authentication,” “show how this run establishes exhaustive
-membership,” and “round-trip both CSV variants” produced decisions I could test. The detailed
-implementation plan was especially useful because it named the desired commands, output paths,
-failure states, and completion invariants.
+Specific prompts were more useful than broad ones. I asked it to prove authentication,
+completeness, resume behavior, and CSV accuracy. I corrected its suggestions when the evidence did
+not match, including the site contract, retry logic, clean-clone test, class-year formatting, and
+the original manual-download workflow.
 
-AI accelerated the repetitive parts: enumerating CAS failure cases, creating synthetic pagination
-and retry fixtures, checking interruption and resume behavior, and comparing the repository back
-to the assessment. It was also useful as a skeptical reviewer. 
-
-I overrode it several times. It initially treated a sanitized logged-out inspection as enough to
-write a site contract; I waited for authenticated evidence. It first stopped on every 429 and did
-not renew an expired session; I changed that to bounded recovery.
-Its first clean-clone command accidentally tested the source checkout, which I caught by
-checking the installed package path. I also rejected the idea that a browser download was
-good enough for reproducibility and required one command that opens normal Chrome, waits for Duo,
-and keeps going. 
-
-The biggest limitation is still unattended Duo authentication. I would rather state that plainly
-than claim that an attended browser session meets a requirement it does not. With an approved
-noninteractive Princeton account or supported CAS exemption, the same collection pipeline can run
-through its intended one-command path without changing the data model or export logic.
+The attended Chrome command is reproducible, but it is not fully unattended because Duo still
+requires a person.
