@@ -1,6 +1,6 @@
 import pytest
 
-from collface_scraper.adapter import DomAdapter, same_origin_url
+from collface_scraper.adapter import DomAdapter, same_origin_url, visible_field_url
 from collface_scraper.config import TARGET
 from collface_scraper.errors import AccessBlocked, DiscoveryError, FetchError
 
@@ -86,6 +86,13 @@ def test_url_identity_uses_named_capture(browser):
 def test_cross_origin_urls_are_rejected():
     with pytest.raises(DiscoveryError, match="outside"):
         same_origin_url("https://unexpected.test/student/1")
+
+
+def test_visible_field_url_applies_observed_same_origin_prefix():
+    field = {"url": True, "url_prefix": "img"}
+    assert visible_field_url(field, "synthetic.jpg") == TARGET + "/img/synthetic.jpg"
+    with pytest.raises(DiscoveryError, match="outside"):
+        visible_field_url({"url": True}, "https://unexpected.test/student.jpg")
 
 
 def test_expired_session_is_renewed_once(browser):

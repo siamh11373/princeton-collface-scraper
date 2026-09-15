@@ -12,6 +12,19 @@ names, profile values, authenticated HTML, screenshots, or response bodies.
 - Moved that observed transformation into `site-contract.json`; the raw CSV now matches the card,
   and the Sheets-safe CSV doubles the leading marker so one apostrophe remains visible on import.
 - Corrected the live Sheet and verified all 5,768 nonempty class-year cells preserve the prefix.
+- A later live audit found that CollFace displays API image filenames under `/img/`. The contract,
+  regenerated full CSV, and all 5,768 Sheet photo URLs were corrected and verified.
+
+## 2026-09-14 - reproducible attended execution
+
+- Installed Google Chrome launched in a clean temporary profile and accepted manual CAS login and
+  Duo approval while the script remained attached through the local debugging interface.
+- A fresh authentication-only check reached verified protected CollFace content.
+- The first sample exposed an unreliable `nav` account marker, an attempt-limit bug, and the photo
+  path mismatch. Each was fixed without persisting credentials or cookies.
+- The final one-command sample discovered 5,768 records, attempted exactly three profiles,
+  completed all three, audited all five visible fields, and wrote seven-column CSVs with zero
+  failures and no manual response download.
 
 ## 2026-09-14 - environment
 
@@ -24,7 +37,7 @@ names, profile values, authenticated HTML, screenshots, or response bodies.
 ## 2026-09-14 - verification
 
 - Ruff lint and format checks pass.
-- All 55 synthetic tests pass, including CAS/Duo failures, exact service callbacks, session
+- All 62 synthetic tests pass, including CAS/Duo failures, exact service callbacks, session
   renewal, discovery, dynamic
   Unicode fields, hidden-value exclusion, `Retry-After`,
   interruption/resume, retries, reconciliation, and CSV round-trip validation.

@@ -26,6 +26,13 @@ def contract():
                 "key": "class_yr",
                 "display_prefix": "'",
             },
+            {
+                "section": "Profile",
+                "label": "Photo URL",
+                "key": "img",
+                "url": True,
+                "url_prefix": "img",
+            },
         ],
     }
 
@@ -43,6 +50,7 @@ def test_browser_export_filters_to_visible_contract_fields(tmp_path):
                         "name": "Synthetic Student",
                         "email": "test@example.test",
                         "class_yr": "29",
+                        "img": "synthetic.jpg",
                         "hidden": "x",
                     }
                 ],
@@ -57,6 +65,7 @@ def test_browser_export_filters_to_visible_contract_fields(tmp_path):
         "Profile/Name": "Synthetic Student",
         "Profile/Email": "test@example.test",
         "Academic/Class Year": "'29",
+        "Profile/Photo URL": "https://collface.deptcpanel.princeton.edu/img/synthetic.jpg",
     }
 
 

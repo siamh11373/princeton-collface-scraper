@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from collface_scraper.cli import main
+from collface_scraper.cli import _report_exit_code, main
 
 
 def test_doctor_json_is_safe_without_credentials(capsys, monkeypatch):
@@ -19,3 +19,9 @@ def test_export_only_reaches_saved_state_validation(tmp_path, capsys):
     assert main(["--export-only", "--output-dir", str(tmp_path)]) == 3
     assert "state_mismatch" in capsys.readouterr().err
     assert not (Path(tmp_path) / "full" / "run.sqlite").exists()
+
+
+def test_full_attended_data_is_success_but_other_partial_results_are_not():
+    assert _report_exit_code({"reasons": []}) == 0
+    assert _report_exit_code({"reasons": ["attended_authentication"]}) == 0
+    assert _report_exit_code({"reasons": ["attended_authentication", "limited_run"]}) == 2

@@ -123,3 +123,17 @@ def test_limited_run_never_claims_complete(tmp_path):
     assert report["status"] == "partial"
     assert "limited_run" in report["reasons"]
     store.close()
+
+
+def test_limit_caps_attempts_even_when_every_profile_fails(tmp_path):
+    class AlwaysFailAdapter(SyntheticAdapter):
+        def profile(self, ref):
+            self.fetched.append(ref.source_id)
+            raise ExtractionError("synthetic")
+
+    store = new_store(tmp_path / "run.sqlite", limit=1)
+    adapter = AlwaysFailAdapter()
+    collect(adapter, store, limit=1, progress=lambda _: None)
+    assert len(adapter.fetched) == 1
+    assert store.counts() == {"discovered": 2, "pending": 1, "complete": 0, "failed": 1}
+    store.close()

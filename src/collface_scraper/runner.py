@@ -22,12 +22,15 @@ def collect(adapter: Adapter, store: RunStore, *, limit: int | None = None, prog
     store.retry_failures()
     started = time.monotonic()
     completed_at_start = store.counts()["complete"]
+    attempted_this_run = 0
 
     def process_pending() -> None:
+        nonlocal attempted_this_run
         for ref in store.pending():
             counts = store.counts()
-            if limit is not None and counts["complete"] >= limit:
+            if limit is not None and attempted_this_run >= limit:
                 return
+            attempted_this_run += 1
             store.attempt(ref.source_id)
             try:
                 fields = validate_fields(adapter.profile(ref))
@@ -60,7 +63,7 @@ def collect(adapter: Adapter, store: RunStore, *, limit: int | None = None, prog
             store.save_page(phase, checkpoint["cursor"], page)
             if limit is not None:
                 process_pending()
-                if store.counts()["complete"] >= limit:
+                if attempted_this_run >= limit:
                     break
         if limit is None:
             process_pending()

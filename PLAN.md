@@ -18,8 +18,10 @@ today if the authorized account and noninteractive CAS path are available.
    and an exact five-field comparison of three rendered cards against the raw CSV.
 8. **Complete:** native Google Sheet import, 5,768-by-7 value-count verification, formatting,
    and exact class-year display correction. The Sheet remains private pending explicit approval.
-9. **External checkpoint:** approved unattended run, restricted Sheet sharing, final scan, and
-   public repository release.
+9. **Complete:** one-command attended execution in an isolated installed-Chrome profile, including
+   manual credential entry, Duo approval, automatic collection, and CSV export. A clean-session
+   three-profile run completed with zero failures.
+10. **External checkpoint:** approved unattended run and restricted Sheet sharing.
 
 ## Completion gate
 

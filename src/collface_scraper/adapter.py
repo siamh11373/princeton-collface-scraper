@@ -28,6 +28,18 @@ def same_origin_url(value: str, base: str = TARGET) -> str:
     return urlsplit(result)._replace(fragment="").geturl()
 
 
+def visible_field_url(field: dict, value: object, *, target: str = TARGET) -> str:
+    """Reproduce an observed same-origin display path from a response value."""
+
+    prefix = field.get("url_prefix", "")
+    if not isinstance(prefix, str):
+        raise DiscoveryError("A contract URL prefix must be a string.")
+    rendered = str(value)
+    if prefix:
+        rendered = prefix.rstrip("/") + "/" + rendered.lstrip("/")
+    return same_origin_url(rendered, target.rstrip("/") + "/")
+
+
 def source_id_from_url(url: str, pattern: str) -> str:
     match = re.search(pattern, url)
     if not match or not match.groupdict().get("id"):

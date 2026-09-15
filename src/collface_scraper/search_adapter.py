@@ -2,11 +2,10 @@
 
 import hashlib
 import time
-from urllib.parse import urljoin
 
 from playwright.sync_api import Error as PlaywrightError
 
-from .adapter import same_origin_url
+from .adapter import same_origin_url, visible_field_url
 from .errors import AccessBlocked, AuthenticationError, DiscoveryError, ExtractionError, FetchError
 from .fetch import backoff, retry_after
 from .fields import from_pairs, visible_contract_value
@@ -137,7 +136,7 @@ class SearchApiAdapter:
                 raise ExtractionError("A contract-verified visible field disappeared.")
             value = record[field["key"]]
             if field.get("url") and value:
-                value = urljoin(self.contract["target"] + "/", str(value))
+                value = visible_field_url(field, value, target=self.contract["target"])
             else:
                 value = visible_contract_value(field, value)
             pairs.append((field["section"], field["label"], value))
@@ -155,7 +154,9 @@ class SearchApiAdapter:
             return False
         search.fill(search_value)
         self.page.get_by_role("button", name=audit["search_button_name"], exact=True).click()
-        card = self.page.locator(audit["card"])
+        # A previous result can remain visible while Vue updates the list. Waiting on the unique
+        # search value prevents auditing a stale card from the preceding profile.
+        card = self.page.locator(audit["card"]).filter(has_text=search_value)
         try:
             card.first.wait_for(state="visible", timeout=15_000)
         except PlaywrightError:
@@ -174,8 +175,12 @@ class SearchApiAdapter:
             photo = card.first.locator(audit["photo"])
             if not photo.count() or not photo.first.is_visible():
                 return False
-            expected = urljoin(self.contract["target"] + "/", str(record[photo_fields[0]["key"]]))
-            actual = urljoin(self.page.url, photo.first.get_attribute("src") or "")
+            expected = visible_field_url(
+                photo_fields[0],
+                record[photo_fields[0]["key"]],
+                target=self.contract["target"],
+            )
+            actual = same_origin_url(photo.first.get_attribute("src") or "", self.page.url)
             if actual != expected:
                 return False
         return True

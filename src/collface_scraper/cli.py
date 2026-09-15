@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .errors import CollFaceError
+from .errors import AuthenticationError, CollFaceError
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,7 +25,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--allow-interactive",
         action="store_true",
-        help="Allow human MFA for development inspection only",
+        help="Open installed Google Chrome and allow human MFA approval",
     )
     parser.add_argument("--output-dir", type=Path, default=Path("output"))
     parser.add_argument("--site-contract", type=Path, default=Path("site-contract.json"))
@@ -47,6 +47,13 @@ def _print_result(args, result: dict) -> None:
         print(json.dumps(result, indent=2, sort_keys=True))
 
 
+def _report_exit_code(report: dict) -> int:
+    """Treat complete data from an explicitly attended run as command success."""
+
+    non_auth_reasons = set(report.get("reasons", ())) - {"attended_authentication"}
+    return 0 if not non_auth_reasons else 2
+
+
 def _run(args) -> int:
     from .config import TARGET, load_credentials
     from .contract import load_contract
@@ -64,7 +71,7 @@ def _run(args) -> int:
             finally:
                 store.close()
         _print_result(args, report)
-        return 0 if report["status"] == "complete" else 2
+        return _report_exit_code(report)
 
     if args.limit is not None and args.limit < 1:
         raise ValueError("--limit must be a positive integer")
@@ -99,10 +106,15 @@ def _run(args) -> int:
             finally:
                 store.close()
         _print_result(args, report)
-        return 0 if report["status"] == "complete" else 2
+        return _report_exit_code(report)
     credentials = load_credentials(optional=args.allow_interactive)
-    attended = credentials is None
+    attended = args.allow_interactive
     if attended:
+        print(
+            "Opening a clean Google Chrome window. Complete Princeton login and Duo there; "
+            "this command will continue automatically after CollFace loads.",
+            file=sys.stderr,
+        )
         run_dir = args.output_dir / (
             "attended-sample" if args.limit is not None else "attended-full"
         )
@@ -111,18 +123,24 @@ def _run(args) -> int:
 
     from .adapter import DomAdapter
     from .auth import authenticate
+    from .browser_session import browser_context, context_page
     from .fetch import Pacer
     from .runner import collect
     from .search_adapter import SearchApiAdapter
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=not args.allow_interactive)
-        context = browser.new_context()
-        try:
-            page = context.new_page()
+        with browser_context(playwright, interactive=args.allow_interactive) as context:
+            page = context_page(context)
             authenticate(page, credentials, allow_interactive=args.allow_interactive)
             if credentials is None:
-                account_basis = page.locator("nav").inner_text(timeout=5_000)
+                # Manual credential entry leaves no plaintext username in the process. Hash the
+                # already-verified protected surface for stable run separation without storing or
+                # logging its account text. CollFace does not expose a reliable semantic <nav>.
+                account_basis = " ".join(page.locator("body").inner_text(timeout=5_000).split())
+                if not account_basis:
+                    raise AuthenticationError(
+                        "The authenticated CollFace account marker could not be derived."
+                    )
                 account_key = hashlib.sha256(account_basis.encode()).hexdigest()
             else:
                 account_key = credentials.account_key
@@ -162,11 +180,8 @@ def _run(args) -> int:
                     raise
                 finally:
                     store.close()
-        finally:
-            context.close()
-            browser.close()
     _print_result(args, report)
-    return 0 if report["status"] == "complete" else 2
+    return _report_exit_code(report)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -193,36 +208,43 @@ def main(argv: list[str] | None = None) -> int:
             from playwright.sync_api import sync_playwright
 
             from .auth import authenticate
+            from .browser_session import browser_context, context_page
             from .config import load_credentials
 
             credentials = load_credentials(optional=args.allow_interactive)
+            if args.allow_interactive:
+                print(
+                    "Opening a clean Google Chrome window. Complete Princeton login and Duo "
+                    "there; this check will continue automatically after CollFace loads.",
+                    file=sys.stderr,
+                )
             with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(headless=not args.allow_interactive)
-                context = browser.new_context()
-                try:
+                with browser_context(playwright, interactive=args.allow_interactive) as context:
                     authenticate(
-                        context.new_page(),
+                        context_page(context),
                         credentials,
                         allow_interactive=args.allow_interactive,
                     )
-                finally:
-                    context.close()
-                    browser.close()
             print("Fresh CAS login verified against protected CollFace content.")
             return 0
         if args.inspect:
             from playwright.sync_api import sync_playwright
 
             from .auth import authenticate
+            from .browser_session import browser_context, context_page
             from .config import load_credentials
             from .inspection import inspect_surface
 
             credentials = load_credentials(optional=args.allow_interactive)
+            if args.allow_interactive:
+                print(
+                    "Opening a clean Google Chrome window. Complete Princeton login and Duo "
+                    "there; inspection will continue automatically after CollFace loads.",
+                    file=sys.stderr,
+                )
             with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(headless=not args.allow_interactive)
-                context = browser.new_context()
-                try:
-                    page = context.new_page()
+                with browser_context(playwright, interactive=args.allow_interactive) as context:
+                    page = context_page(context)
                     authenticate(page, credentials, allow_interactive=args.allow_interactive)
                     result = inspect_surface(
                         page, args.output_dir / "inspection" / "site-observation.json"
@@ -233,9 +255,6 @@ def main(argv: list[str] | None = None) -> int:
                             "Press Enter here when the review is finished."
                         )
                         input()
-                finally:
-                    context.close()
-                    browser.close()
             _print_result(args, result)
             return 0
         return _run(args)

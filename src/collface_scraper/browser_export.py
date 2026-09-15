@@ -2,9 +2,8 @@
 
 import json
 from pathlib import Path
-from urllib.parse import urljoin
 
-from .adapter import same_origin_url
+from .adapter import same_origin_url, visible_field_url
 from .errors import DiscoveryError, ExtractionError
 from .fields import from_pairs, visible_contract_value
 from .models import Fields, ListingPage, ProfileRef
@@ -62,7 +61,7 @@ class BrowserExportAdapter:
                 raise ExtractionError("A contract-verified visible field disappeared.")
             value = record[field["key"]]
             if field.get("url") and value:
-                value = urljoin(self.contract["target"] + "/", str(value))
+                value = visible_field_url(field, value, target=self.contract["target"])
             else:
                 value = visible_contract_value(field, value)
             pairs.append((field["section"], field["label"], value))

@@ -18,7 +18,7 @@
     {"section": "Academic", "label": "Class Year", "key": "class_yr", "display_prefix": "'"},
     {"section": "Contact", "label": "Email", "key": "email"},
     {"section": "Academic", "label": "Program", "key": "program"},
-    {"section": "Profile", "label": "Photo URL", "key": "img", "url": true}
+    {"section": "Profile", "label": "Photo URL", "key": "img", "url": true, "url_prefix": "img"}
   ],
   "audit": {
     "search_key": "email",
@@ -27,5 +27,5 @@
     "card": "li.student",
     "photo": "img"
   },
-  "field_validation_evidence": "The Vue card component accepted props img, program, email, class_yr, name, and id. Live cards render class_yr with a leading apostrophe, captured declaratively as display_prefix. Visible DOM comparison excluded internal id and response-only year, acad_plan_descr, and college."
+  "field_validation_evidence": "The Vue card component accepted props img, program, email, class_yr, name, and id. Live cards render class_yr with a leading apostrophe and image filenames under /img/, captured declaratively as display_prefix and url_prefix. Visible DOM comparison excluded internal id and response-only year, acad_plan_descr, and college."
 }

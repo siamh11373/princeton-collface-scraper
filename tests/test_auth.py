@@ -98,6 +98,26 @@ def test_attended_inspection_can_leave_credentials_to_user(browser):
     context.close()
 
 
+def test_supplied_credentials_can_pause_for_attended_duo(browser):
+    context = browser.new_context()
+    install_routes(context, outcome="duo")
+    page = context.new_page()
+
+    def approve_duo(message):
+        if "verification" in message or "MFA" in message:
+            page.goto("https://collface.deptcpanel.princeton.edu/home")
+
+    assert authenticate(
+        page,
+        Credentials("synthetic", "test-only"),
+        allow_interactive=True,
+        timeout=1,
+        interactive_timeout=3,
+        progress=approve_duo,
+    ).endswith("/home")
+    context.close()
+
+
 @pytest.mark.parametrize(
     ("outcome", "error"),
     [("invalid", AuthenticationError), ("duo", InteractiveAuthenticationRequired)],
