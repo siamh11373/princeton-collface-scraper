@@ -42,7 +42,9 @@ I considered three implementation shapes:
 - **Browser-authenticated HTTP hybrid:** potentially the best later optimization, but only if
   ordinary browser traffic reveals a stable endpoint and its fields match the rendered profiles.
 
-I chose browser only for the first correct implementation. I rejected copying endpoints or code
+I chose browser only for the first correct implementation. Live inspection later showed that the
+rendered cards are backed by one exhaustive same-origin Vue response, so I replaced the assumed
+link-by-link collection path with a browser-authenticated response adapter. I rejected copying endpoints or code
 from the prior TigerNet project: those are unverified for CollFace and would violate the clean-room
 boundary of this project. I also rejected writing a plausible `site-contract.json` from the
 logged-out page. The contract is deliberately absent until an authenticated observation exists.
@@ -75,10 +77,10 @@ stop collection because continuing could be unsafe or produce misleading data.
 
 The machine's default Python is 3.9, while the project requires Python 3.12. An existing isolated
 Python 3.12 runtime managed by `uv` was selected without copying the prior scraper environment.
-The GitHub CLI's saved token is currently invalid, so remote creation is a separate explicit
-checkpoint after local initialization.
+The GitHub CLI initially had an invalid token. After device reauthentication, the private remote
+was created and the verified milestones were pushed without publishing student data.
 
-The available account uses Duo. If a clean-context CAS attempt requires human approval, the
+The available account uses Duo. A clean-context CAS attempt requires human approval, so the
 final unattended-authentication requirement remains blocked unless Princeton provides an
 approved noninteractive account or supported exemption. The implementation will detect and
 report that state instead of bypassing MFA.
@@ -93,9 +95,19 @@ coverage. A final authentication review made the CAS `service` callback mandator
 merely rejecting a foreign callback. Further failure-path tests covered persistent 403/429 and
 exhausted network retries. The final local suite reached 42 passing tests.
 
-The inspection command intentionally does not synthesize selectors. It records only value-free
-DOM structure because inventing a selector from a logged-out page would create false confidence
-about discovery completeness and could accidentally preserve student data.
+Authenticated inspection established an authoritative total of 5,768 records. The response has a
+unique backend source ID and visible card values for name, class year, email, program, and photo.
+One record has no visible email, which disproved the initial email-as-identity assumption. The
+implementation now hashes the backend ID into an opaque stable `profile_id`; the hidden raw ID is
+never exported. Backend-only year, academic-description, and college values are also excluded.
+
+Playwright's attended Duo flow repeatedly failed during an IdP transition even after two narrow
+redirect fixes. The author explicitly directed the live work to use a separate normal Chrome tab.
+That tab authenticated successfully and downloaded a temporary same-origin JSON response. A new
+Chrome-export adapter passed it through the same schema checks, SQLite queue, two-pass discovery,
+dynamic field extraction, and CSV validation. The local run completed all 5,768 records with zero
+failures; its report remains partial because attended authentication cannot satisfy the unattended
+assessment requirement. The temporary response and all outputs remain ignored by Git.
 
 The first clean-clone installation test also caught a verification mistake: I invoked an absolute
 requirements file while the working directory was still the source repository, so editable `.`
@@ -107,10 +119,8 @@ Document extraction had two small failures. `pdftotext` was unavailable, and the
 not contain `pypdf`. I used the workspace's bundled document runtime instead and extracted all six
 pages. That second reading prompted the session-renewal and THINKING.md depth audit.
 
-GitHub publication did not fail because of repository code; the locally saved GitHub token had
-expired. A device login was started and remains an explicit release checkpoint. Likewise, no
-CollFace credentials were present in the process environment. I opened the authorized CAS page
-for user-controlled login rather than requesting or handling credentials in chat.
+No CollFace credentials were placed in the process environment or chat. Authentication stayed in
+user-controlled Princeton and Duo pages, and normal Chrome reused the user's approved session.
 
 ## AI collaboration
 
@@ -141,8 +151,8 @@ AI suggestions needed correction in three places:
 - The first adapter stopped on every 429 and on session expiry. Comparing the code back to the
   acceptance plan led to bounded `Retry-After` recovery and one safe CAS renewal.
 
-AI did not receive Princeton credentials, approve Duo, inspect hidden backend fields, or invent a
-successful full run. The remaining authenticated observations and the final Google Sheet must be
-recorded here only after they actually occur. The author should edit this narrative into their own
+AI did not receive Princeton credentials or approve Duo. It observed response structure only to
+decide which values corresponded to rendered cards; no student values were added to code or docs.
+The final Google Sheet must be recorded here only after it actually occurs. The author should edit this narrative into their own
 voice before submission, especially where personal reasoning or intent cannot be inferred from
 the engineering log.

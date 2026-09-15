@@ -13,9 +13,10 @@ today if the authorized account and noninteractive CAS path are available.
 3. **Complete:** contract-driven stable-ID discovery and dynamic visible-field extraction.
 4. **Complete:** SQLite resume, one-request-per-second pacing, bounded recovery, reconciliation.
 5. **Complete:** deterministic UTF-8 raw and Sheets-safe CSV validation.
-6. **In progress:** clean-clone, security, documentation, and repository checks.
-7. **External checkpoint:** attended authenticated inspection and three-profile browser comparison.
-8. **External checkpoint:** approved unattended full run, two-pass reconciliation, Sheet import,
+6. **Complete:** clean-clone, security, documentation, and repository checks.
+7. **Partial:** authenticated normal-Chrome inspection and a complete 5,768-record local export;
+   the three-profile browser comparison remains pending because Chrome was in active use.
+8. **External checkpoint:** approved unattended run, Sheet import,
    restricted sharing, final scan, and public repository release.
 
 ## Completion gate

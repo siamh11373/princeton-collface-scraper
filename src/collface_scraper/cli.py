@@ -32,6 +32,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--limit", type=int, help="Collect at most this many profiles")
     parser.add_argument("--inspect", action="store_true", help="Run bounded attended inspection")
     parser.add_argument("--export-only", action="store_true", help="Rebuild CSVs from saved state")
+    parser.add_argument(
+        "--browser-export",
+        type=Path,
+        help="Process a temporary authenticated JSON response downloaded in normal Chrome",
+    )
     return parser
 
 
@@ -46,13 +51,13 @@ def _run(args) -> int:
     from .config import TARGET, load_credentials
     from .contract import load_contract
     from .export import export_run
-    from .locking import exclusive_lock
+    from .locking import run_lock
     from .state import RunStore
 
     run_dir = args.output_dir / ("sample" if args.limit is not None else "full")
     state_path = run_dir / "run.sqlite"
     if args.export_only:
-        with exclusive_lock(run_dir / ".lock"):
+        with run_lock(run_dir):
             store = RunStore(state_path)
             try:
                 report = export_run(store, run_dir)
@@ -65,32 +70,77 @@ def _run(args) -> int:
         raise ValueError("--limit must be a positive integer")
     contract_bytes = args.site_contract.read_bytes()
     contract = load_contract(args.site_contract)
-    credentials = load_credentials()
-    identity = {
-        "target": TARGET,
-        "account": credentials.account_key,
-        "scope": "all-visible-students",
-        "limit": args.limit,
-        "contract_sha256": hashlib.sha256(contract_bytes).hexdigest(),
-    }
+    if args.browser_export:
+        from .browser_export import BrowserExportAdapter
+        from .runner import collect
+
+        run_dir = args.output_dir / (
+            "attended-sample" if args.limit is not None else "attended-full"
+        )
+        state_path = run_dir / "run.sqlite"
+        export_hash = hashlib.sha256(args.browser_export.read_bytes()).hexdigest()
+        identity = {
+            "target": TARGET,
+            "account": "normal-chrome-attended",
+            "scope": "all-visible-students",
+            "limit": args.limit,
+            "contract_sha256": hashlib.sha256(contract_bytes).hexdigest(),
+            "browser_export_sha256": export_hash,
+        }
+        with run_lock(run_dir):
+            store = RunStore(state_path, identity)
+            try:
+                collect(
+                    BrowserExportAdapter(args.browser_export, contract), store, limit=args.limit
+                )
+                store.note("blocker", "attended_authentication")
+                store.note("browser_export_sha256", export_hash)
+                report = export_run(store, run_dir)
+            finally:
+                store.close()
+        _print_result(args, report)
+        return 0 if report["status"] == "complete" else 2
+    credentials = load_credentials(optional=args.allow_interactive)
+    attended = credentials is None
+    if attended:
+        run_dir = args.output_dir / (
+            "attended-sample" if args.limit is not None else "attended-full"
+        )
+        state_path = run_dir / "run.sqlite"
     from playwright.sync_api import sync_playwright
 
     from .adapter import DomAdapter
     from .auth import authenticate
     from .fetch import Pacer
     from .runner import collect
+    from .search_adapter import SearchApiAdapter
 
-    with exclusive_lock(run_dir / ".lock"):
-        store = RunStore(state_path, identity)
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=not args.allow_interactive)
+        context = browser.new_context()
         try:
-            with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(headless=not args.allow_interactive)
-                context = browser.new_context()
+            page = context.new_page()
+            authenticate(page, credentials, allow_interactive=args.allow_interactive)
+            if credentials is None:
+                account_basis = page.locator("nav").inner_text(timeout=5_000)
+                account_key = hashlib.sha256(account_basis.encode()).hexdigest()
+            else:
+                account_key = credentials.account_key
+            identity = {
+                "target": TARGET,
+                "account": account_key,
+                "scope": "all-visible-students",
+                "limit": args.limit,
+                "contract_sha256": hashlib.sha256(contract_bytes).hexdigest(),
+            }
+            with run_lock(run_dir):
+                store = RunStore(state_path, identity)
                 try:
-                    page = context.new_page()
-                    authenticate(page, credentials, allow_interactive=args.allow_interactive)
+                    adapter_type = (
+                        SearchApiAdapter if contract["mode"] == "search-api" else DomAdapter
+                    )
                     collect(
-                        DomAdapter(
+                        adapter_type(
                             page,
                             contract,
                             pace=Pacer(1).wait,
@@ -103,16 +153,18 @@ def _run(args) -> int:
                         store,
                         limit=args.limit,
                     )
+                    if attended:
+                        store.note("blocker", "attended_authentication")
+                    report = export_run(store, run_dir)
+                except CollFaceError as error:
+                    store.note("blocker", error.code)
+                    export_run(store, run_dir)
+                    raise
                 finally:
-                    context.close()
-                    browser.close()
-            report = export_run(store, run_dir)
-        except CollFaceError as error:
-            store.note("blocker", error.code)
-            export_run(store, run_dir)
-            raise
+                    store.close()
         finally:
-            store.close()
+            context.close()
+            browser.close()
     _print_result(args, report)
     return 0 if report["status"] == "complete" else 2
 
@@ -143,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
             from .auth import authenticate
             from .config import load_credentials
 
-            credentials = load_credentials()
+            credentials = load_credentials(optional=args.allow_interactive)
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(headless=not args.allow_interactive)
                 context = browser.new_context()
@@ -165,7 +217,7 @@ def main(argv: list[str] | None = None) -> int:
             from .config import load_credentials
             from .inspection import inspect_surface
 
-            credentials = load_credentials()
+            credentials = load_credentials(optional=args.allow_interactive)
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(headless=not args.allow_interactive)
                 context = browser.new_context()

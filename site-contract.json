@@ -1,0 +1,31 @@
+{
+  "target": "https://collface.deptcpanel.princeton.edu",
+  "mode": "search-api",
+  "evidence": "Authenticated Chrome inspection on 2026-09-14: Vue cards rendered as li.card.student; normal search traffic used the same-origin JSON endpoint below.",
+  "exhaustive": true,
+  "enumeration_evidence": "The all/all search returned status OK, total 5768, and a data array of length 5768 in one response. The UI independently paginated that response and exposed first, previous, next, and last controls.",
+  "source_url": "https://collface.deptcpanel.princeton.edu/",
+  "identity_field": "id",
+  "api": {
+    "url": "https://collface.deptcpanel.princeton.edu/search/term/all/college/all",
+    "status_field": "status",
+    "success_value": "OK",
+    "total_field": "total",
+    "records_field": "data"
+  },
+  "visible_fields": [
+    {"section": "Profile", "label": "Name", "key": "name"},
+    {"section": "Academic", "label": "Class Year", "key": "class_yr"},
+    {"section": "Contact", "label": "Email", "key": "email"},
+    {"section": "Academic", "label": "Program", "key": "program"},
+    {"section": "Profile", "label": "Photo URL", "key": "img", "url": true}
+  ],
+  "audit": {
+    "search_key": "email",
+    "search_input": "input[placeholder='Search for...']",
+    "search_button_name": "Search",
+    "card": "li.student",
+    "photo": "img"
+  },
+  "field_validation_evidence": "The Vue card component accepted props img, program, email, class_yr, name, and id. Visible DOM comparison excluded internal id and response-only year, acad_plan_descr, and college."
+}

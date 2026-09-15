@@ -31,6 +31,14 @@ def install_routes(context, outcome="success", *, action="/cas/login"):
                     "success": '<script>location.replace("https://collface.deptcpanel.princeton.edu/home")</script>',
                     "invalid": "Invalid credentials",
                     "duo": "Check your device to approve your Duo sign-in",
+                    "duo_redirect": (
+                        '<script>location.replace("https://api-test.duosecurity.com/frame/v4/auth")'
+                        "</script>"
+                    ),
+                    "fed_transition": (
+                        '<script>location.replace("https://fed.princeton.edu:8443/idp/continue")'
+                        "</script>"
+                    ),
                     "foreign": '<script>location.replace("https://unexpected.test/")</script>',
                 }[outcome]
                 request.fulfill(content_type="text/html", body=body)
@@ -40,6 +48,13 @@ def install_routes(context, outcome="success", *, action="/cas/login"):
             request.fulfill(content_type="text/html", body=PROTECTED)
         elif url == "https://unexpected.test/":
             request.fulfill(content_type="text/html", body="unexpected")
+        elif url == "https://api-test.duosecurity.com/frame/v4/auth":
+            request.fulfill(content_type="text/html", body="Duo Universal Prompt")
+        elif url == "https://fed.princeton.edu:8443/idp/continue":
+            request.fulfill(
+                content_type="text/html",
+                body='<script>location.replace("https://collface.deptcpanel.princeton.edu/home")</script>',
+            )
         else:
             request.abort()
 
@@ -57,6 +72,32 @@ def test_programmatic_cas_success_requires_protected_content(browser):
     context.close()
 
 
+def test_attended_inspection_can_leave_credentials_to_user(browser):
+    context = browser.new_context()
+    install_routes(context, outcome="duo")
+    page = context.new_page()
+
+    def enter_credentials(message):
+        if "credentials" in message:
+            page.locator('input[name="username"]').fill("synthetic")
+            page.locator('input[name="password"]').fill("test-only")
+            page.get_by_role("button", name="LOGIN").click()
+            page.goto("https://collface.deptcpanel.princeton.edu/home")
+
+    assert (
+        authenticate(
+            page,
+            None,
+            allow_interactive=True,
+            timeout=1,
+            interactive_timeout=3,
+            progress=enter_credentials,
+        )
+        == "https://collface.deptcpanel.princeton.edu/home"
+    )
+    context.close()
+
+
 @pytest.mark.parametrize(
     ("outcome", "error"),
     [("invalid", AuthenticationError), ("duo", InteractiveAuthenticationRequired)],
@@ -69,10 +110,27 @@ def test_cas_failure_modes_are_explicit(browser, outcome, error):
     context.close()
 
 
+def test_top_level_duo_redirect_is_detected(browser):
+    context = browser.new_context()
+    install_routes(context, "duo_redirect")
+    with pytest.raises(InteractiveAuthenticationRequired):
+        authenticate(context.new_page(), Credentials("synthetic", "test-only"), timeout=3)
+    context.close()
+
+
+def test_https_princeton_idp_transition_is_allowed_after_submission(browser):
+    context = browser.new_context()
+    install_routes(context, "fed_transition")
+    assert authenticate(
+        context.new_page(), Credentials("synthetic", "test-only"), timeout=3
+    ).endswith("/home")
+    context.close()
+
+
 def test_credentials_cannot_be_sent_to_another_origin(browser):
     context = browser.new_context()
     install_routes(context, action="https://unexpected.test/collect")
-    with pytest.raises(AuthenticationError, match="unexpected origin"):
+    with pytest.raises(AuthenticationError, match="unexpected"):
         authenticate(context.new_page(), Credentials("synthetic", "test-only"), timeout=3)
     context.close()
 
@@ -80,7 +138,7 @@ def test_credentials_cannot_be_sent_to_another_origin(browser):
 def test_unexpected_callback_origin_is_rejected(browser):
     context = browser.new_context()
     install_routes(context, outcome="foreign")
-    with pytest.raises(AuthenticationError, match="unexpected origin"):
+    with pytest.raises(AuthenticationError, match="unexpected"):
         authenticate(context.new_page(), Credentials("synthetic", "test-only"), timeout=3)
     context.close()
 

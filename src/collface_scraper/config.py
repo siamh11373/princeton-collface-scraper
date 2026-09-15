@@ -13,7 +13,12 @@ CAS_ORIGIN = "https://fed.princeton.edu"
 
 def origin(url: str) -> str:
     parsed = urlsplit(url)
-    return f"{parsed.scheme}://{parsed.netloc}"
+    hostname = parsed.hostname or ""
+    default_port = (parsed.scheme == "https" and parsed.port == 443) or (
+        parsed.scheme == "http" and parsed.port == 80
+    )
+    port = "" if parsed.port is None or default_port else f":{parsed.port}"
+    return f"{parsed.scheme}://{hostname}{port}"
 
 
 @dataclass(frozen=True)
@@ -26,10 +31,12 @@ class Credentials:
         return hashlib.sha256(self.username.strip().casefold().encode()).hexdigest()
 
 
-def load_credentials() -> Credentials:
+def load_credentials(*, optional: bool = False) -> Credentials | None:
     username = os.getenv("COLLFACE_USERNAME")
     password = os.getenv("COLLFACE_PASSWORD")
     if username is None and password is None:
+        if optional:
+            return None
         raise ConfigurationError(
             "Set COLLFACE_USERNAME and COLLFACE_PASSWORD in the process environment."
         )

@@ -11,9 +11,10 @@ excluded and is not reproduced here.
 
 ## Safety and current status
 
-The synthetic implementation and test suite are complete. A real `site-contract.json`, full
-directory run, and Google Sheet require an authorized authenticated session and are deliberately
-not fabricated. Standard Princeton Duo is supported for attended development inspection only.
+The implementation, synthetic test suite, and reviewed `site-contract.json` are complete. An
+authorized normal-Chrome run enumerated 5,768 records with zero extraction failures and produced
+validated local CSVs. Those outputs remain ignored by Git. Standard Princeton Duo is supported
+for attended development inspection only.
 If Duo appears during a headless run, the command exits with `auth_unattended_blocked`; it does not
 automate or bypass MFA.
 
@@ -51,13 +52,14 @@ python -m collface_scraper --inspect --allow-interactive
 python -m collface_scraper --limit 3
 python -m collface_scraper
 python -m collface_scraper --export-only
+python -m collface_scraper --browser-export /path/to/collface-export.json
 ```
 
-`--inspect` writes a value-free structural observation under `output/inspection/`. Review it in
-the authenticated browser, which remains open until Enter is pressed; create `site-contract.json`
-from selectors actually observed, and
-record evidence for the stable identifier and exhaustive listing mechanism. The collector refuses
-to run without this reviewed contract. See [docs/INSPECTION.md](docs/INSPECTION.md).
+`--inspect` writes a value-free structural observation under `output/inspection/`. The reviewed
+contract records the observed Vue search response and visible card fields. When Duo cannot finish
+inside Playwright, `--browser-export` processes a temporary same-origin response downloaded from
+an authenticated normal Chrome tab. The response file must remain outside Git and should be
+removed after validation. See [docs/INSPECTION.md](docs/INSPECTION.md).
 
 The default run uses one browser, one session, one worker, and a global limit of one navigation per
 second. It performs discovery, transactional profile collection, a second discovery pass,
@@ -88,6 +90,8 @@ as missing.
 - `auth.py`: exact-origin CAS validation, protected-content proof, Duo detection
 - `contract.py` and `inspection.py`: reviewed observed structure, sanitized inspection
 - `adapter.py`: same-origin pagination and dynamic visible-field extraction
+- `search_adapter.py`: observed exhaustive Vue response, opaque stable IDs, browser-card audits
+- `browser_export.py`: normal-Chrome fallback that filters the temporary response to visible fields
 - `state.py` and `runner.py`: SQLite queue, atomic page commits, resume, reconciliation
 - `fetch.py`: global pacing, bounded backoff, `Retry-After`
 - `export.py`: deterministic headers, atomic UTF-8 CSVs, hashes, completion report
@@ -100,6 +104,7 @@ as missing.
   account, contract, scope, and limit.
 - `access_blocked`: stop. Persistent 429 and HTTP 403 are not retried indefinitely.
 - `configuration_error`: verify both environment variables and the reviewed contract path.
+- `--browser-export` is attended evidence, not proof of unattended CAS compliance.
 
 Run checks with `.venv/bin/ruff check .`, `.venv/bin/ruff format --check .`, and
 `.venv/bin/pytest -q`.

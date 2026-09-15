@@ -40,9 +40,16 @@ def _protected(page, text: str) -> bool:
     )
 
 
+def _is_approved_post_submit_transition(url: str) -> bool:
+    """Allow Princeton's HTTPS IdP handoff without relaxing credential submission checks."""
+
+    parsed = urlsplit(url)
+    return parsed.scheme == "https" and parsed.hostname == "fed.princeton.edu"
+
+
 def authenticate(
     page,
-    credentials: Credentials,
+    credentials: Credentials | None,
     *,
     allow_interactive: bool = False,
     timeout: float = 45.0,
@@ -61,7 +68,7 @@ def authenticate(
         waiting = False
         deadline = time.monotonic() + timeout
 
-        def require_human() -> None:
+        def require_human(message: str) -> None:
             nonlocal waiting, deadline
             if not allow_interactive:
                 raise InteractiveAuthenticationRequired(
@@ -71,15 +78,18 @@ def authenticate(
                 waiting = True
                 deadline = time.monotonic() + interactive_timeout
                 page.bring_to_front()
-                progress(
-                    "Complete the Princeton MFA prompt in the browser or on your device. "
-                    "Do not enter credentials or verification codes in chat."
-                )
+                progress(message)
 
         while time.monotonic() < deadline:
             frame_hosts = {urlsplit(frame.url).hostname or "" for frame in page.frames}
-            if any(host.endswith(".duosecurity.com") for host in frame_hosts):
-                require_human()
+            current_host = urlsplit(page.url).hostname or ""
+            if current_host.endswith(".duosecurity.com") or any(
+                host.endswith(".duosecurity.com") for host in frame_hosts
+            ):
+                require_human(
+                    "Complete Princeton MFA in the browser or on your device. "
+                    "Do not enter verification codes in chat."
+                )
                 page.wait_for_timeout(250)
                 continue
             try:
@@ -88,7 +98,10 @@ def authenticate(
                 page.wait_for_timeout(250)
                 continue
             if CHALLENGE.search(text) or HUMAN_CHECK.search(text):
-                require_human()
+                require_human(
+                    "Complete the Princeton verification prompt yourself. "
+                    "Do not enter verification codes in chat."
+                )
                 page.wait_for_timeout(250)
                 continue
             if INVALID.search(text):
@@ -109,14 +122,28 @@ def authenticate(
                     raise AuthenticationError("The credential form has an unexpected origin.")
                 if method != "post":
                     raise AuthenticationError("The credential form no longer submits by POST.")
+                if credentials is None:
+                    submitted = True
+                    require_human(
+                        "Enter your Princeton credentials directly in the browser and submit. "
+                        "Do not send credentials in chat."
+                    )
+                    page.wait_for_timeout(250)
+                    continue
                 username.fill(credentials.username)
                 password.fill(credentials.password)
                 page.get_by_role("button", name=re.compile(r"^login$", re.I)).click(timeout=15_000)
                 submitted = True
-            elif origin(page.url) not in (TARGET, CAS_ORIGIN) and not any(
-                host.endswith(".duosecurity.com") for host in frame_hosts
+            elif (
+                origin(page.url) not in (TARGET, CAS_ORIGIN)
+                and not ((submitted or waiting) and _is_approved_post_submit_transition(page.url))
+                and not (urlsplit(page.url).hostname or "").endswith(".duosecurity.com")
+                and not any(host.endswith(".duosecurity.com") for host in frame_hosts)
             ):
-                raise AuthenticationError("Authentication redirected to an unexpected origin.")
+                safe_origin = origin(page.url) or "unknown"
+                raise AuthenticationError(
+                    f"Authentication redirected to unexpected origin {safe_origin}."
+                )
             page.wait_for_timeout(250)
 
         if waiting:
