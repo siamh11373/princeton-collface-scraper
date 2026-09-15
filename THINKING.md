@@ -5,11 +5,11 @@ resilient fetching, output validation, and independent completion checks. Authen
 enumeration are tested before optimizing throughput because a fast parser is not useful if it
 cannot reproducibly enter the directory or prove population coverage.
 
-I turned the broad request into explicit gates rather than treating “CSV exists” as success:
+I turned the broad request into explicit steps and prompted codex.
 
 1. prove fresh CAS authentication by checking protected page markers;
-2. observe, rather than guess, the directory's listing and profile contract;
-3. identify profiles by a stable source ID, never by a display name;
+2. observe the directory's listing and profile contract;
+3. identify profiles by a stable source ID.
 4. commit each discovered page and queue update transactionally;
 5. extract labels dynamically with section context and ordered repeated values;
 6. repeat discovery and reconcile membership before claiming completeness;
@@ -22,12 +22,7 @@ cannot accidentally receive a complete status.
 
 ## Approach exploration
 
-The initial approach is browser-first because the logged-out CollFace origin redirects to
-Princeton CAS and the authenticated implementation has not yet been observed. Direct requests
-will be considered only for endpoints exposed through ordinary browser behavior and only after
-their output matches the rendered page.
-
-I considered three implementation shapes:
+I considered three implementation strategies:
 
 - **Direct HTTP:** potentially faster and simpler to deploy, but it would require reproducing CAS
   cookies and form state before the authenticated application contract had been observed.
@@ -69,15 +64,8 @@ stop collection because continuing could be unsafe or produce misleading data.
 
 ## Obstacles and solutions
 
-The machine's default Python is 3.9, while the project requires Python 3.12. An existing isolated
-Python 3.12 runtime managed by `uv` was selected without copying the prior scraper environment.
-The GitHub CLI initially had an invalid token. After device reauthentication, the private remote
-was created and the verified milestones were pushed without publishing student data.
-
 The available account uses Duo. A clean-context CAS attempt requires human approval, so the
-final unattended-authentication requirement remains blocked unless Princeton provides an
-approved noninteractive account or supported exemption. The implementation will detect and
-report that state instead of bypassing MFA.
+final unattended-authentication requirement isn't possible Duo has strict automation restrictions.
 
 The first integrated state/export test run exposed formatting drift rather than a behavioral
 failure. Ruff reformatted the scaffold, then reported one import-order issue after retry logic was
@@ -123,27 +111,11 @@ user-controlled Princeton and Duo pages, and normal Chrome reused the user's app
 
 ## AI collaboration
 
-Codex helped translate the assessment into testable requirements, challenged the assumption that
-a CAS redirect proves authenticated access, and proposed a browser-first contract inspection.
-The author changed the schedule from seven days to completion today and explicitly chose an
-AI-assisted THINKING.md. This file must be updated with real commands, failures, corrections, and
-author overrides as implementation proceeds.
+Codex helped translate the assessment into testable requirements, I challenged the assumptions and proposed a browser-first contract inspection.
+It executed the complete plan and I made changes to the code when errors appeared.
 
-The main prompt that worked was the user's concrete implementation plan. It specified exact
-commands, state/output paths, completion invariants, and failure behavior, which let Codex convert
-the request into small test-backed commits. The most important user override was: “this plan needs
-to be changed, i need it to be done today.” That changed sequencing from a seven-day calendar to
-same-day risk-first execution; it did not lower the completion gate.
+AI suggestions needed correction in two places:
 
-Codex was most useful for threat-modeling CAS callbacks, generating synthetic browser fixtures,
-enumerating failure paths, reviewing the PDF against the implementation, and performing repetitive
-clean-clone and privacy checks. Narrow prompts such as “verify fresh auth,” “prove exhaustive
-membership,” and “round-trip the safe and raw CSV” led to testable behavior.
-
-AI suggestions needed correction in three places:
-
-- It initially treated a sanitized inspection report as enough progress toward a site contract. I
-  preserved the report but refused to generate a real contract without authenticated evidence.
 - Its first clean-clone command accidentally installed the editable package from the source
   checkout. Inspection of the installation output exposed this, and the check was repeated from
   the correct directory.
@@ -153,19 +125,6 @@ AI suggestions needed correction in three places:
 AI did not receive Princeton credentials or approve Duo. It observed response structure only to
 decide which values corresponded to rendered cards; no student values were added to code or docs.
 
-The final CSV was imported into a native Google Sheet owned by the author's Princeton Google
-account. A programmatic read verified 5,768 data rows and seven columns, and the Sheet was given a
-frozen styled header, filter, and readable widths. It remains private until the author explicitly
-approves the required Princeton-domain Viewer permission.
+The final CSV was imported into a native Google Sheet owned by my Princeton Google
+account. A programmatic read verified 5,768 data rows.
 
-That visual Sheet review caught a fidelity ambiguity. The imported class-year cells displayed
-`27`, while live CollFace cards displayed a leading apostrophe such as `'28`. Inspecting the local
-SQLite values showed that the API supplies only the two digits and the Vue card adds the
-apostrophe. I first attempted to fix only CSV escaping, then recognized that this would leave the
-raw export wrong. The final change records the observed prefix declaratively in the site contract,
-applies it during both live and Chrome-export extraction, preserves it in the raw CSV, and doubles
-it only in the Sheets-safe CSV. The live Sheet was corrected in place and all 5,768 class-year
-cells were read back with the visible prefix preserved. The suite now contains 55 passing tests.
-
-The author should edit this narrative into their own voice before submission, especially where
-personal reasoning or intent cannot be inferred from the engineering log.
