@@ -32,7 +32,7 @@ needed a leading apostrophe, so I fixed the extraction rule and regenerated the 
 
 ## Obstacles and solutions
 
-Duo was the main obstacle. It requires human approval, so I did not try to bypass it. Headless
+Duo was the main obstacle. It requires human approval using biometric fingerprint or FaceID, so I did not try to bypass it. Headless
 authentication stops and reports the issue.
 
 For a reproducible run, the script now opens a clean Google Chrome window. The reviewer logs in,
